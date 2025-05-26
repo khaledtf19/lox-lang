@@ -1,7 +1,7 @@
 use std::usize;
 
 use crate::error;
-use crate::token::{self, Token, TokenType};
+use crate::token::{self, parse_keyword, Token, TokenLiteral, TokenType};
 
 pub struct Scanner {
     source: String,
@@ -9,8 +9,10 @@ pub struct Scanner {
     start: usize,
     curr: usize,
     line: usize,
+    
     is_error: bool,
 }
+
 impl Scanner {
     pub fn new(source: String) -> Self {
         Scanner {
@@ -45,18 +47,18 @@ impl Scanner {
         };
         return self.source.chars().nth(idx).unwrap();
     }
+
     fn advance(&mut self) -> char {
         let c = self.get_char_from_source(self.curr as usize);
-        dbg!(c);
 
         self.curr += 1;
 
         c
     }
+
     fn scan_token(&mut self) {
         let c = self.advance();
 
-        dbg!(c);
         match c {
             '(' => self.add_token(TokenType::LEFTPAREN, None),
             ')' => self.add_token(TokenType::RIGHTPAREN, None),
@@ -118,11 +120,25 @@ impl Scanner {
             _ => {
                 if c.is_numeric() {
                     self.number_to_end();
+                } else if self.is_alph(c) {
+                    self.identifier_to_end();
                 } else {
                     error::error(self.line, "Unexpected character.".to_string())
                 }
             }
         }
+    }
+    fn identifier_to_end(&mut self) {
+        while self.is_alph_numeric(self.peek()) {
+            self.advance();
+        }
+        let text = self.sub_string(Some(self.start), Some(self.curr) );
+        let mut curr_type = parse_keyword(&text);
+        if curr_type.is_none() {
+            curr_type = Some(TokenType::IDENTIFIER)
+        }
+
+        self.add_token(curr_type.unwrap(), None);
     }
     fn string_to_end(&mut self) {
         while self.peek() != '"' && !self.is_at_end() {
@@ -139,15 +155,43 @@ impl Scanner {
         self.advance();
         let curr_str = self.sub_string(Some(self.start as usize + 1), Some(self.curr as usize - 1));
 
-        self.add_token(TokenType::STRING, None);
+        self.add_token(TokenType::STRING, Some(TokenLiteral::Text(curr_str)));
     }
-    
-    fn number_to_end(&mut self){
-        let curr_char = self.get_char_from_source(self.curr as usize);
-        while self.peek().is_numeric() || self.peek() == '.' && !self.is_at_end() {
-            
+
+    fn number_to_end(&mut self) {
+        while self.is_digit(self.peek()) {
+            self.advance();
         }
 
+        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+            self.advance();
+            while self.is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+        let num = self.sub_string(Some(self.start), Some(self.curr));
+        self.add_token(
+            TokenType::NUMBER,
+            Some(TokenLiteral::Float(num.parse().unwrap())),
+        );
+    }
+
+    fn peek_next(&self) -> char {
+        if self.curr + 1 >= self.source.len() {
+            return '\0';
+        }
+        self.get_char_from_source(self.curr + 1)
+    }
+
+    fn is_alph_numeric(&self, c: char) -> bool {
+        self.is_digit(c) || self.is_alph(c)
+    }
+
+    fn is_digit(&self, c: char) -> bool {
+        c >= '0' && c <= '9'
+    }
+    fn is_alph(&self, c: char) -> bool {
+        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
     }
 
     fn sub_string(&self, start: Option<usize>, end: Option<usize>) -> String {
@@ -162,17 +206,16 @@ impl Scanner {
         };
         self.get_char_from_source(self.curr as usize)
     }
-    fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
-        let text = self.sub_string(Some(self.start),Some(self.curr));
+    fn add_token(&mut self, token_type: TokenType, literal: Option<TokenLiteral>) {
+        let text = self.sub_string(Some(self.start), Some(self.curr));
 
-        println!("{}",text);
+        println!("{}", text);
         self.tokens.push(Token {
             lexeme: text,
             token_type,
             literal,
             line: self.line,
         });
-        dbg!(&self.tokens);
     }
     fn match_char(&mut self, expected: char) -> bool {
         if self.is_at_end() {
