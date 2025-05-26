@@ -50,6 +50,7 @@ fn run_prompt() -> io::Result<()> {
 }
 
 fn run(source: String) {
+    dbg!(source.clone());
     let mut scanner = scanner::Scanner::new(source);
     let tokens = scanner.scan_tokens();
     for token in tokens.iter() {

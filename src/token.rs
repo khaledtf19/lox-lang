@@ -1,4 +1,4 @@
-use std::fmt::{self,Display};
+use std::{fmt::{self,Display}, usize};
 
 #[derive(Debug)]
 pub enum TokenType {
@@ -32,11 +32,11 @@ pub struct Token {
     pub lexeme: String,
     pub token_type: TokenType,
     pub literal :Option<String>,
-    pub line: i32
+    pub line: usize
 }
 
 impl Token {
-    fn new(token_type: TokenType, lexeme:String, literal:Option<String>, line:i32) ->Self{
+    fn new(token_type: TokenType, lexeme:String, literal:Option<String>, line:usize) ->Self{
         Token { lexeme, token_type, literal, line }
     }
     fn to_string(self) -> String{

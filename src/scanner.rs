@@ -6,9 +6,9 @@ use crate::token::{self, Token, TokenType};
 pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
-    start: i32,
-    curr: i32,
-    line: i32,
+    start: usize,
+    curr: usize,
+    line: usize,
     is_error: bool,
 }
 impl Scanner {
@@ -23,23 +23,21 @@ impl Scanner {
         }
     }
     fn is_at_end(&self) -> bool {
-        self.curr >= self.source.len() as i32
+        self.curr >= self.source.len()
     }
-    pub fn scan_tokens(&mut self) -> Vec<Token> {
-        let mut tokens: Vec<Token> = vec![];
-
+    pub fn scan_tokens(&mut self) -> &Vec<Token> {
         while !self.is_at_end() {
             self.start = self.curr;
-            self.scan_tokens();
+            self.scan_token();
         }
 
-        tokens.push(Token {
+        self.tokens.push(Token {
             lexeme: "".to_string(),
             token_type: TokenType::EOF,
             literal: None,
             line: self.line,
         });
-        tokens
+        &self.tokens
     }
     fn get_char_from_source(&self, idx: usize) -> char {
         if self.is_at_end() {
@@ -49,6 +47,7 @@ impl Scanner {
     }
     fn advance(&mut self) -> char {
         let c = self.get_char_from_source(self.curr as usize);
+        dbg!(c);
 
         self.curr += 1;
 
@@ -57,6 +56,7 @@ impl Scanner {
     fn scan_token(&mut self) {
         let c = self.advance();
 
+        dbg!(c);
         match c {
             '(' => self.add_token(TokenType::LEFTPAREN, None),
             ')' => self.add_token(TokenType::RIGHTPAREN, None),
@@ -115,7 +115,13 @@ impl Scanner {
             '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string_to_end(),
-            _ => error::error(self.line, "Unexpected character.".to_string()),
+            _ => {
+                if c.is_numeric() {
+                    self.number_to_end();
+                } else {
+                    error::error(self.line, "Unexpected character.".to_string())
+                }
+            }
         }
     }
     fn string_to_end(&mut self) {
@@ -125,17 +131,27 @@ impl Scanner {
             }
             self.advance();
         }
-        if self.is_at_end() {
+        if self.is_at_end() && self.get_char_from_source(self.curr as usize) != '"' {
             error::error(self.line, "Unterminated string.".to_string());
             return;
         }
 
         self.advance();
         let curr_str = self.sub_string(Some(self.start as usize + 1), Some(self.curr as usize - 1));
-        self.add_token(TokenType::STRING, Some(curr_str));
+
+        self.add_token(TokenType::STRING, None);
     }
+    
+    fn number_to_end(&mut self){
+        let curr_char = self.get_char_from_source(self.curr as usize);
+        while self.peek().is_numeric() || self.peek() == '.' && !self.is_at_end() {
+            
+        }
+
+    }
+
     fn sub_string(&self, start: Option<usize>, end: Option<usize>) -> String {
-        if start.is_some() && end.is_some(){
+        if start.is_some() && end.is_some() {
             return self.source[start.unwrap()..end.unwrap()].to_string();
         }
         self.source[self.start as usize..self.curr as usize].to_string()
@@ -147,13 +163,16 @@ impl Scanner {
         self.get_char_from_source(self.curr as usize)
     }
     fn add_token(&mut self, token_type: TokenType, literal: Option<String>) {
-        let text = self.sub_string(None, None);
+        let text = self.sub_string(Some(self.start),Some(self.curr));
+
+        println!("{}",text);
         self.tokens.push(Token {
             lexeme: text,
             token_type,
             literal,
             line: self.line,
-        })
+        });
+        dbg!(&self.tokens);
     }
     fn match_char(&mut self, expected: char) -> bool {
         if self.is_at_end() {
