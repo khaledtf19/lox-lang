@@ -1,7 +1,7 @@
 use std::usize;
 
 use crate::error;
-use crate::token::{self, parse_keyword, Token, TokenLiteral, TokenType};
+use crate::token::{self, Token, TokenLiteral, TokenType, parse_keyword};
 
 pub struct Scanner {
     source: String,
@@ -9,7 +9,7 @@ pub struct Scanner {
     start: usize,
     curr: usize,
     line: usize,
-    
+
     is_error: bool,
 }
 
@@ -104,14 +104,24 @@ impl Scanner {
                 }
                 self.add_token(curr_type, None);
             }
-            '/' => match self.match_char('/') {
-                true => {
+            '/' => {
+                let next = self.peek();
+                if next == '/' {
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
+                } else if next == '*' {
+                    while self.peek() != '/' && !self.is_at_end() {
+                        if self.peek() == '\n' {
+                            self.line += 1;
+                        }
+                        self.advance();
+                    }
+                    self.advance();
+                } else {
+                    self.add_token(TokenType::SLASH, None);
                 }
-                false => self.add_token(TokenType::SLASH, None),
-            },
+            }
             ' ' => {}
             '\r' => {}
             '\t' => {}
@@ -132,7 +142,7 @@ impl Scanner {
         while self.is_alph_numeric(self.peek()) {
             self.advance();
         }
-        let text = self.sub_string(Some(self.start), Some(self.curr) );
+        let text = self.sub_string(Some(self.start), Some(self.curr));
         let mut curr_type = parse_keyword(&text);
         if curr_type.is_none() {
             curr_type = Some(TokenType::IDENTIFIER)
@@ -221,7 +231,7 @@ impl Scanner {
         if self.is_at_end() {
             return false;
         }
-        if self.get_char_from_source(self.curr as usize) != expected {
+        if self.get_char_from_source(self.curr) != expected {
             return false;
         }
         self.curr += 1;
