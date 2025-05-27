@@ -1,30 +1,59 @@
-use std::{fmt::{self,Display}, usize};
+use std::{
+    fmt::{self, Display},
+    usize,
+};
 
 use phf::phf_map;
 
-
-
-
 #[derive(Debug, Clone, Copy)]
 pub enum TokenType {
-  // Single-character tokens.
-  LEFTPAREN, RIGHTPAREN, LEFTBRACE, RIGHTBRACE,
-  COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
+    // Single-character tokens.
+    LEFTPAREN,
+    RIGHTPAREN,
+    LEFTBRACE,
+    RIGHTBRACE,
+    COMMA,
+    DOT,
+    MINUS,
+    PLUS,
+    SEMICOLON,
+    SLASH,
+    STAR,
 
-  // One or two character tokens.
-  BANG, BANGEQUAL,
-  EQUAL, EQUALEQUAL,
-  GREATER, GREATEREQUAL,
-  LESS, LESSEQUAL,
+    // One or two character tokens.
+    BANG,
+    BANGEQUAL,
+    EQUAL,
+    EQUALEQUAL,
+    GREATER,
+    GREATEREQUAL,
+    LESS,
+    LESSEQUAL,
 
-  // Literals.
-  IDENTIFIER, STRING, NUMBER,
+    // Literals.
+    IDENTIFIER,
+    STRING,
+    NUMBER,
 
-  // Keywords.
-  AND, CLASS, ELSE, FALSE, FUN, FOR, IF, NIL, OR,
-  PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
+    // Keywords.
+    AND,
+    CLASS,
+    ELSE,
+    FALSE,
+    FUN,
+    FOR,
+    IF,
+    NIL,
+    OR,
+    PRINT,
+    RETURN,
+    SUPER,
+    THIS,
+    TRUE,
+    VAR,
+    WHILE,
 
-  EOF
+    EOF,
 }
 
 // static map
@@ -56,34 +85,58 @@ impl Display for TokenType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenLiteral {
     Float(f64),
-    Text(String)
+    Text(String),
 }
-
-impl ToString for TokenLiteral {
-    fn to_string(&self) -> String {
+impl Display for TokenLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TokenLiteral::Float(num) => num.to_string(),
-            TokenLiteral::Text(s) => s.to_string(),
+            TokenLiteral::Float(v) => write!(f, "{}", v),
+            TokenLiteral::Text(v) => write!(f, "{}", v),
         }
     }
 }
 
-#[derive(Debug)]
+// impl ToString for TokenLiteral {
+//     fn to_string(&self) -> String {
+//         match self {
+//             TokenLiteral::Float(num) => num.to_string(),
+//             TokenLiteral::Text(s) => s.to_string(),
+//         }
+//     }
+// }
+
+#[derive(Debug, Clone)]
 pub struct Token {
     pub lexeme: String,
     pub token_type: TokenType,
-    pub literal :Option<TokenLiteral>,
-    pub line: usize
+    pub literal: Option<TokenLiteral>,
+    pub line: usize,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.lexeme)
+    }
 }
 
 impl Token {
-    fn new(token_type: TokenType, lexeme:String, literal:Option<TokenLiteral>, line:usize) ->Self{
-        Token { lexeme, token_type, literal, line }
+    pub fn new(
+        token_type: TokenType,
+        lexeme: String,
+        literal: Option<TokenLiteral>,
+        line: usize,
+    ) -> Self {
+        Token {
+            lexeme,
+            token_type,
+            literal,
+            line,
+        }
     }
-    fn to_string(self) -> String{
+    pub fn to_string(self) -> String {
         let l = match self.literal {
             Some(s) => s.to_string(),
             None => "".to_string(),
@@ -91,5 +144,3 @@ impl Token {
         return self.token_type.to_string() + " " + &self.lexeme + " " + &l;
     }
 }
-
-

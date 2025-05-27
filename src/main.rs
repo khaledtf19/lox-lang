@@ -1,16 +1,29 @@
+use ast::expr::{BinaryExpr, Expr, LiteralValue};
 use std::{
     env::{self},
     fs::File,
     io::{self, Read},
 };
 use text_io::read;
+use token::{Token, TokenType};
 
+mod ast;
 mod error;
 mod scanner;
 mod token;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+
+    let expression = Expr::binary(
+        Expr::unary(
+            Token::new(TokenType::MINUS, "-".to_string(), None, 1),
+            Expr::literal(LiteralValue::Number(123.0)),
+        ),
+        Token::new(TokenType::STAR, "*".to_string(), None, 1),
+        Expr::grouping(Expr::literal(LiteralValue::Number(45.67))),
+    );
+    println!("{}", expression);
 
     if args.len() <= 1 {
         println!("Usage: rlox [script]");
