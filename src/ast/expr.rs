@@ -64,7 +64,6 @@ impl Display for Expr {
 
 impl Expr {
     pub fn binary(left: Expr, operator: Token, right: Expr) -> Self {
-        println!("BBB");
         Expr::Binary(BinaryExpr {
             left: Box::new(left),
             operator,
@@ -72,22 +71,17 @@ impl Expr {
         })
     }
     pub fn grouping(expr: Expr) -> Self {
-        println!("GGGG");
         Expr::Grouping(GroupingExpr {
             expression: Box::new(expr),
         })
     }
     pub fn unary(operator: Token, right: Expr) -> Self {
-        println!("UUU");
-
         Expr::Unary(UnaryExpr {
             operator,
             right: Box::new(right),
         })
     }
     pub fn literal(literal_value: LiteralValue) -> Self {
-        println!("LLL");
-
         Expr::Literal(LiteralExpr {
             value: literal_value,
         })
