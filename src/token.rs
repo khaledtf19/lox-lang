@@ -5,7 +5,7 @@ use std::{
 
 use phf::phf_map;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
     // Single-character tokens.
     LEFTPAREN,
