@@ -1,10 +1,25 @@
+use crate::token::{Token, TokenType};
 
-pub fn error(line: usize, message: String){
-    report(line, "".to_string(),message, &mut false);
-}
+pub struct LoxError;
+impl LoxError {
+    pub fn error(line: usize, message: String) {
+        LoxError::report(line, "".to_string(), message, &mut false);
+    }
 
-pub fn report(line: usize, error_where:String, message:String,hasError: &mut bool){
-
-    println!("[line {line}] Error {error_where} => {message} ");
-    *hasError = true;
+    pub fn report(line: usize, error_where: String, message: String, has_error: &mut bool) {
+        println!("[line {line}] Error {error_where} => {message} ");
+        *has_error = true;
+    }
+    pub fn token_errro(token: &Token, message: String) {
+        if token.token_type == TokenType::EOF {
+            LoxError::report(token.line, " at end".to_string(), message, &mut false);
+        } else {
+            LoxError::report(
+                token.line,
+                " at '".to_string() + &token.lexeme + "'",
+                message,
+                &mut false,
+            );
+        }
+    }
 }

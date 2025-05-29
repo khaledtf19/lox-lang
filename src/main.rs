@@ -1,4 +1,5 @@
 use ast::expr::{BinaryExpr, Expr, LiteralValue};
+use parser::parser::Parser;
 use std::{
     env::{self},
     fs::File,
@@ -9,6 +10,7 @@ use token::{Token, TokenType};
 
 mod ast;
 mod error;
+mod parser;
 mod scanner;
 mod token;
 
@@ -65,7 +67,11 @@ fn run_prompt() -> io::Result<()> {
 fn run(source: String) {
     let mut scanner = scanner::Scanner::new(source);
     let tokens = scanner.scan_tokens();
-    for token in tokens.iter() {
-        println!("{:?}", token);
+    let mut parser = Parser::new(tokens);
+    let expression = parser.parse();
+    if parser.is_error || expression.is_none() {
+        return;
     }
+    
+    println!("{}", expression.unwrap());
 }

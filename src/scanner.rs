@@ -1,7 +1,7 @@
 use std::usize;
 
-use crate::error;
-use crate::token::{self, Token, TokenLiteral, TokenType, parse_keyword};
+use crate::error::LoxError;
+use crate::token::{Token, TokenLiteral, TokenType, parse_keyword};
 
 pub struct Scanner {
     source: String,
@@ -10,7 +10,7 @@ pub struct Scanner {
     curr: usize,
     line: usize,
 
-    is_error: bool,
+    pub is_error: bool,
 }
 
 impl Scanner {
@@ -27,7 +27,7 @@ impl Scanner {
     fn is_at_end(&self) -> bool {
         self.curr >= self.source.len()
     }
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
+    pub fn scan_tokens(&mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.start = self.curr;
             self.scan_token();
@@ -39,7 +39,7 @@ impl Scanner {
             literal: None,
             line: self.line,
         });
-        &self.tokens
+        self.tokens.clone()
     }
     fn get_char_from_source(&self, idx: usize) -> char {
         if self.is_at_end() {
@@ -133,7 +133,8 @@ impl Scanner {
                 } else if self.is_alph(c) {
                     self.identifier_to_end();
                 } else {
-                    error::error(self.line, "Unexpected character.".to_string())
+                    self.is_error = true;
+                    LoxError::error(self.line, "Unexpected character.".to_string());
                 }
             }
         }
@@ -158,7 +159,8 @@ impl Scanner {
             self.advance();
         }
         if self.is_at_end() && self.get_char_from_source(self.curr as usize) != '"' {
-            error::error(self.line, "Unterminated string.".to_string());
+            self.is_error = true;
+            LoxError::error(self.line, "Unterminated string.".to_string());
             return;
         }
 

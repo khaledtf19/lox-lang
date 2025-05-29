@@ -111,9 +111,9 @@ impl Display for TokenLiteral {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub lexeme: String,
-    pub token_type: TokenType,
     pub literal: Option<TokenLiteral>,
     pub line: usize,
+    pub token_type: TokenType,
 }
 
 impl Display for Token {
