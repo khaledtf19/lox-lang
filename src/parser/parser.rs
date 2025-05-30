@@ -37,10 +37,7 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Result<Expr, ParserError> {
-        let mut expr = match self.comparison() {
-            Ok(ex) => ex,
-            Err(err) => return Err(err),
-        };
+        let mut expr = self.comparison()?;
 
         while self.match_token_types(vec![TokenType::BANGEQUAL, TokenType::EQUALEQUAL]) {
             let operator = self.previous();
@@ -55,10 +52,8 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Result<Expr, ParserError> {
-        let mut expr = match self.term() {
-            Ok(ex) => ex,
-            Err(err) => return Err(err),
-        };
+        let mut expr = self.term()?;
+
 
         while self.match_token_types(vec![
             TokenType::GREATER,

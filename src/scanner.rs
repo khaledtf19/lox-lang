@@ -221,7 +221,6 @@ impl Scanner {
     fn add_token(&mut self, token_type: TokenType, literal: Option<TokenLiteral>) {
         let text = self.sub_string(Some(self.start), Some(self.curr));
 
-        println!("{}", text);
         self.tokens.push(Token {
             lexeme: text,
             token_type,
