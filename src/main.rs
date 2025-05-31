@@ -67,7 +67,6 @@ fn run_prompt() -> io::Result<()> {
 fn run(source: String) {
     let mut scanner = scanner::Scanner::new(source);
     let tokens = scanner.scan_tokens();
-    println!("{:?}",tokens);
     let mut parser = Parser::new(tokens);
     let expression = parser.parse();
     if parser.is_error || expression.is_none() {

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::token::{Token, TokenLiteral, TokenType};
+use crate::token::Token;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -8,6 +8,7 @@ pub enum Expr {
     Grouping(GroupingExpr),
     Literal(LiteralExpr),
     Unary(UnaryExpr),
+    Separator(SeparatorExpr)
 }
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,7 @@ pub struct BinaryExpr {
 pub struct GroupingExpr {
     pub expression: Box<Expr>,
 }
+
 
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
@@ -51,6 +53,12 @@ pub struct UnaryExpr {
     pub right: Box<Expr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct SeparatorExpr {
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -58,6 +66,7 @@ impl Display for Expr {
             Expr::Grouping(expr) => write!(f, "(group {})", expr.expression),
             Expr::Literal(expr) => write!(f, "{}", expr.value),
             Expr::Unary(expr) => write!(f, "({} {})", expr.operator, expr.right),
+            Expr::Separator(expr) => write!(f, "(separator {} {})", expr.left, expr.right),
         }
     }
 }
@@ -74,6 +83,9 @@ impl Expr {
         Expr::Grouping(GroupingExpr {
             expression: Box::new(expr),
         })
+    }
+    pub fn separator(left: Expr, right: Expr) -> Self{
+        Expr::Separator(SeparatorExpr {left: Box::new(left), right: Box::new(right)})
     }
     pub fn unary(operator: Token, right: Expr) -> Self {
         Expr::Unary(UnaryExpr {
