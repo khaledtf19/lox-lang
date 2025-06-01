@@ -20,6 +20,10 @@ pub enum TokenType {
     SLASH,
     STAR,
 
+    //Ternary
+    QUESTION,
+    COLON,
+
     // One or two character tokens.
     BANG,
     BANGEQUAL,

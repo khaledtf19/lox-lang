@@ -8,7 +8,8 @@ pub enum Expr {
     Grouping(GroupingExpr),
     Literal(LiteralExpr),
     Unary(UnaryExpr),
-    Separator(SeparatorExpr)
+    Separator(SeparatorExpr),
+    Ternary(TernaryExpr)
 }
 
 #[derive(Debug, Clone)]
@@ -33,7 +34,7 @@ pub enum LiteralValue {
 }
 #[derive(Debug, Clone)]
 pub struct LiteralExpr {
-    pub value: LiteralValue,
+    pub value: LiteralValue
 }
 
 impl Display for LiteralValue {
@@ -59,6 +60,13 @@ pub struct SeparatorExpr {
     pub right: Box<Expr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct TernaryExpr {
+    pub condition: Box<Expr>,
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -67,6 +75,7 @@ impl Display for Expr {
             Expr::Literal(expr) => write!(f, "{}", expr.value),
             Expr::Unary(expr) => write!(f, "({} {})", expr.operator, expr.right),
             Expr::Separator(expr) => write!(f, "(separator {} {})", expr.left, expr.right),
+            Expr::Ternary(exper) => write!(f, "(ternary {} {} {})", exper.condition, exper.left, exper.right)
         }
     }
 }
@@ -96,6 +105,13 @@ impl Expr {
     pub fn literal(literal_value: LiteralValue) -> Self {
         Expr::Literal(LiteralExpr {
             value: literal_value,
+        })
+    }
+    pub fn ternary(condition: Expr,left: Expr,  right: Expr)-> Self{
+    Expr::Ternary(TernaryExpr {
+            condition: Box::new(condition),
+            right: Box::new(right),
+            left: Box::new(left)
         })
     }
 }

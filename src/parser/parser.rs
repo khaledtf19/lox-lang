@@ -33,6 +33,15 @@ impl Parser {
         // println!("{}", self.peek().token_type);
 
         let expr = self.equality()?;
+        if self.match_token_types(vec![TokenType::QUESTION]) {
+            let left = self.expression()?;
+            self.consume(TokenType::COLON, "Expect ')' after expression.".to_string())?;
+            let right = self.expression()?;
+            return Ok(Expr::ternary(expr, left, right));
+
+            
+        }
+
 
         if self.match_token_types(vec![TokenType::COMMA]) {
             let right = self.expression()?;
