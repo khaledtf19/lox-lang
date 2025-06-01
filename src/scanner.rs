@@ -122,6 +122,9 @@ impl Scanner {
                     self.add_token(TokenType::SLASH, None);
                 }
             }
+            '?' => self.add_token(TokenType::QUESTION, None),
+            ':' => self.add_token(TokenType::COLON, None),
+
             ' ' => {}
             '\r' => {}
             '\t' => {}

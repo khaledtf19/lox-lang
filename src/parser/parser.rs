@@ -13,6 +13,7 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
+        println!("{:?}", tokens);
         Parser {
             curr: 0,
             tokens,
@@ -29,10 +30,23 @@ impl Parser {
         }
     }
     fn expression(&mut self) -> Result<Expr, ParserError> {
-        let expr = match self.equality() {
-            Ok(ex) => ex,
-            Err(err) => return Err(err),
-        };
+        // println!("{}", self.peek().token_type);
+
+        let expr = self.equality()?;
+        if self.match_token_types(vec![TokenType::QUESTION]) {
+            let left = self.expression()?;
+            self.consume(TokenType::COLON, "Expect ')' after expression.".to_string())?;
+            let right = self.expression()?;
+            return Ok(Expr::ternary(expr, left, right));
+
+            
+        }
+
+
+        if self.match_token_types(vec![TokenType::COMMA]) {
+            let right = self.expression()?;
+            return Ok(Expr::separator(expr, right));
+        }
         Ok(expr)
     }
 
@@ -41,19 +55,15 @@ impl Parser {
 
         while self.match_token_types(vec![TokenType::BANGEQUAL, TokenType::EQUALEQUAL]) {
             let operator = self.previous();
-            let right = match self.comparison() {
-                Ok(ex) => ex,
-                Err(err) => return Err(err),
-            };
+            let right = self.comparison()?;
 
-            expr = Expr::binary(expr, operator, right)
+            expr = Expr::binary(expr, operator, right);
         }
         Ok(expr)
     }
 
     fn comparison(&mut self) -> Result<Expr, ParserError> {
         let mut expr = self.term()?;
-
 
         while self.match_token_types(vec![
             TokenType::GREATER,
@@ -62,11 +72,8 @@ impl Parser {
             TokenType::LESSEQUAL,
         ]) {
             let operator = self.previous();
-            let right = match self.term() {
-                Ok(ex) => ex,
-                Err(err) => return Err(err),
-            };
-            expr = Expr::binary(expr, operator, right)
+            let right = self.term()?;
+            expr = Expr::binary(expr, operator, right);
         }
         Ok(expr)
     }
@@ -90,6 +97,7 @@ impl Parser {
             let right = self.factor()?;
             expr = Expr::binary(expr, operator, right);
         }
+
         Ok(expr)
     }
 
@@ -99,6 +107,7 @@ impl Parser {
             let right = self.unary()?;
             return Ok(Expr::unary(operator, right));
         }
+
         self.primary()
     }
 
@@ -124,6 +133,9 @@ impl Parser {
                 }
             }
         }
+        if self.match_token_types(vec![TokenType::COMMA]) {
+            println!("here: =>>")
+        }
         if self.match_token_types(vec![TokenType::LEFTPAREN]) {
             let expr = self.expression()?;
 
@@ -138,6 +150,7 @@ impl Parser {
                 }
             }
         }
+
         self.is_error = true;
         Err(ParserError::new(
             self.peek().clone(),

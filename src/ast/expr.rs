@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::token::{Token, TokenLiteral, TokenType};
+use crate::token::Token;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -8,6 +8,8 @@ pub enum Expr {
     Grouping(GroupingExpr),
     Literal(LiteralExpr),
     Unary(UnaryExpr),
+    Separator(SeparatorExpr),
+    Ternary(TernaryExpr)
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +24,7 @@ pub struct GroupingExpr {
     pub expression: Box<Expr>,
 }
 
+
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
     Number(f64),
@@ -31,7 +34,7 @@ pub enum LiteralValue {
 }
 #[derive(Debug, Clone)]
 pub struct LiteralExpr {
-    pub value: LiteralValue,
+    pub value: LiteralValue
 }
 
 impl Display for LiteralValue {
@@ -51,6 +54,19 @@ pub struct UnaryExpr {
     pub right: Box<Expr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct SeparatorExpr {
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TernaryExpr {
+    pub condition: Box<Expr>,
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -58,6 +74,8 @@ impl Display for Expr {
             Expr::Grouping(expr) => write!(f, "(group {})", expr.expression),
             Expr::Literal(expr) => write!(f, "{}", expr.value),
             Expr::Unary(expr) => write!(f, "({} {})", expr.operator, expr.right),
+            Expr::Separator(expr) => write!(f, "(separator {} {})", expr.left, expr.right),
+            Expr::Ternary(exper) => write!(f, "(ternary {} {} {})", exper.condition, exper.left, exper.right)
         }
     }
 }
@@ -75,6 +93,9 @@ impl Expr {
             expression: Box::new(expr),
         })
     }
+    pub fn separator(left: Expr, right: Expr) -> Self{
+        Expr::Separator(SeparatorExpr {left: Box::new(left), right: Box::new(right)})
+    }
     pub fn unary(operator: Token, right: Expr) -> Self {
         Expr::Unary(UnaryExpr {
             operator,
@@ -84,6 +105,13 @@ impl Expr {
     pub fn literal(literal_value: LiteralValue) -> Self {
         Expr::Literal(LiteralExpr {
             value: literal_value,
+        })
+    }
+    pub fn ternary(condition: Expr,left: Expr,  right: Expr)-> Self{
+    Expr::Ternary(TernaryExpr {
+            condition: Box::new(condition),
+            right: Box::new(right),
+            left: Box::new(left)
         })
     }
 }
