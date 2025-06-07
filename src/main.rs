@@ -10,6 +10,7 @@ use token::{Token, TokenType};
 
 mod ast;
 mod error;
+mod interpreter;
 mod parser;
 mod scanner;
 mod token;
@@ -72,6 +73,6 @@ fn run(source: String) {
     if parser.is_error || expression.is_none() {
         return;
     }
-    
+
     println!("{}", expression.unwrap());
 }
