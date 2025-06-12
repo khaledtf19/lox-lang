@@ -8,23 +8,22 @@ use super::error::ParserError;
 pub struct Parser {
     tokens: Vec<Token>,
     curr: usize,
-    pub is_error: bool,
+    pub had_error: bool,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        println!("{:?}", tokens);
         Parser {
             curr: 0,
             tokens,
-            is_error: false,
+            had_error: false,
         }
     }
     pub fn parse(&mut self) -> Option<Expr> {
         match self.expression() {
             Ok(ex) => return Some(ex),
             Err(_) => {
-                self.is_error = true;
+                self.had_error = true;
                 return None;
             }
         }
@@ -145,13 +144,13 @@ impl Parser {
             ) {
                 Ok(_) => return Ok(Expr::grouping(expr)),
                 Err(err) => {
-                    self.is_error = true;
+                    self.had_error = true;
                     return Err(err);
                 }
             }
         }
 
-        self.is_error = true;
+        self.had_error = true;
         Err(ParserError::new(
             self.peek().clone(),
             "Expect expression.".to_string(),
@@ -166,7 +165,7 @@ impl Parser {
         if self.check(token_type) {
             return Ok(self.advance());
         } else {
-            self.is_error = true;
+            self.had_error = true;
             let err = ParserError::new(self.peek().clone(), error_message);
             Err(err)
         }

@@ -5,17 +5,17 @@ use crate::token::Token;
 #[derive(Debug, Clone)]
 pub enum Expr {
     Binary(BinaryExpr),
-    Grouping(GroupingExpr),
-    Literal(LiteralExpr),
     Unary(UnaryExpr),
+    Ternary(TernaryExpr),
+    Literal(LiteralExpr),
     Separator(SeparatorExpr),
-    Ternary(TernaryExpr)
+    Grouping(GroupingExpr),
 }
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpr {
-    pub left: Box<Expr>,
     pub operator: Token,
+    pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
@@ -27,8 +27,8 @@ pub struct GroupingExpr {
 
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
-    Number(f64),
     String(String),
+    Number(f64),
     Boolean(bool),
     Nil,
 }

@@ -23,3 +23,13 @@ impl LoxError {
         }
     }
 }
+
+pub struct RunTimeError {
+    pub token: Token,
+    pub message: String
+}
+impl RunTimeError {
+    pub fn new(token: Token, message: String) -> Self {
+        Self { token , message}
+    }
+}
