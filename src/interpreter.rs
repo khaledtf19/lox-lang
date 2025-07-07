@@ -2,20 +2,23 @@ use crate::{
     ast::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr},
     error::RunTimeError,
     lox::Lox,
+    stmt::Stmt,
     token::TokenType,
 };
 
 #[derive(Debug)]
 pub struct Interpreter {
-    pub hadError: bool,
+    pub has_error: bool,
 }
+
+type InterpreterResult<T> = std::result::Result<T, RunTimeError>;
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self { hadError: false }
+        Self { has_error: false }
     }
     pub fn visitLitearalExpr(&self, expr: LiteralExpr) -> Result<LiteralValue, RunTimeError> {
-        Ok(expr.value)
+        Ok(expr.value.clone())
     }
     pub fn visitGroupingExpr(&self, expr: GroupingExpr) -> Result<LiteralValue, RunTimeError> {
         self.evaluate(*expr.expression)
@@ -28,7 +31,7 @@ impl Interpreter {
                 LiteralValue::Number(num) => return Ok(LiteralValue::Number(-num)),
 
                 _ => Err(RunTimeError::new(
-                    expr.operator,
+                    expr.operator.clone(),
                     "Expected a number".to_string(),
                 )),
             },
@@ -51,7 +54,15 @@ impl Interpreter {
         match (left, right) {
             (LiteralValue::Number(l), LiteralValue::Number(r)) => match expr.operator.token_type {
                 TokenType::MINUS => return Ok(LiteralValue::Number(l - r)),
-                TokenType::SLASH => return Ok(LiteralValue::Number(l / r)),
+                TokenType::SLASH => {
+                    if r == 0.0 {
+                        return Err(RunTimeError::new(
+                            expr.operator.clone(),
+                            "Can't divide by Zero".to_string(),
+                        ));
+                    }
+                    return Ok(LiteralValue::Number(l / r));
+                }
                 TokenType::STAR => return Ok(LiteralValue::Number(l * r)),
                 TokenType::PLUS => return Ok(LiteralValue::Number(l + r)),
                 TokenType::GREATER => return Ok(LiteralValue::Boolean(l > r)),
@@ -63,7 +74,7 @@ impl Interpreter {
 
                 TokenType::EQUAL => todo!(),
                 _ => Err(RunTimeError::new(
-                    expr.operator,
+                    expr.operator.clone(),
                     "Unexpected operator".to_string(),
                 )),
             },
@@ -72,21 +83,55 @@ impl Interpreter {
                 TokenType::EQUALEQUAL => return Ok(LiteralValue::Boolean(l == r)),
                 TokenType::BANGEQUAL => return Ok(LiteralValue::Boolean(l != r)),
                 _ => Err(RunTimeError::new(
-                    expr.operator,
+                    expr.operator.clone(),
+                    "Unexpected operator".to_string(),
+                )),
+            },
+            (LiteralValue::String(st), LiteralValue::Number(num)) => match expr.operator.token_type
+            {
+                TokenType::PLUS => {
+                    return Ok(LiteralValue::String(st.to_string() + &num.to_string()));
+                }
+                _ => Err(RunTimeError::new(
+                    expr.operator.clone(),
                     "Unexpected operator".to_string(),
                 )),
             },
 
+            (LiteralValue::Number(num), LiteralValue::String(st)) => match expr.operator.token_type
+            {
+                TokenType::PLUS => {
+                    return Ok(LiteralValue::String(st.to_string() + &num.to_string()));
+                }
+                _ => Err(RunTimeError::new(
+                    expr.operator.clone(),
+                    "Unexpected operator".to_string(),
+                )),
+            },
             (l, r) => match expr.operator.token_type {
                 TokenType::EQUALEQUAL => return Ok(LiteralValue::Boolean(self.isEqual(l, r))),
                 TokenType::BANGEQUAL => return Ok(LiteralValue::Boolean(self.isEqual(l, r))),
                 _ => Err(RunTimeError::new(
-                    expr.operator,
+                    expr.operator.clone(),
                     "Unexpected operator".to_string(),
                 )),
             },
         }
     }
+
+    pub fn visit_expresstion_stmt(&mut self, expr: Expr) {
+        self.evaluate(expr);
+    }
+
+    pub fn visit_print_stmt(&mut self, expr: Expr) {
+        match self.evaluate(expr) {
+            Ok(value) => println!("{}", self.stringify(value)),
+            Err(_) => {
+                self.has_error = true;
+            }
+        }
+    }
+
     fn isEqual(&self, l: LiteralValue, r: LiteralValue) -> bool {
         match (l, r) {
             (LiteralValue::Number(l), LiteralValue::Number(r)) => l == r,
@@ -120,15 +165,17 @@ impl Interpreter {
             LiteralValue::Nil => "Nil".to_string(),
         }
     }
-    pub fn interpret(&mut self, expr: Expr) {
-        match self.evaluate(expr) {
-            Ok(value) => {
-                println!("{}", self.stringify(value))
-            }
-            Err(err) => {
-                self.hadError = true;
-                Lox::runTimeErro(err)
-            }
+    pub fn interpret(&mut self, statements: Vec<Stmt>) {
+        statements.iter().for_each(|stmt| match self.execute(stmt) {
+            Ok(st) => {}
+            Err(_) => self.has_error = true,
+        });
+    }
+    pub fn execute(&mut self, statement: &Stmt) -> InterpreterResult<()> {
+        match &statement.expresstion {
+            crate::stmt::StmtExpr::Print(expr) => self.visit_print_stmt(expr.clone()),
+            crate::stmt::StmtExpr::Expresstion(expr) => self.visit_expresstion_stmt(expr.clone()),
         }
+        Ok(())
     }
 }

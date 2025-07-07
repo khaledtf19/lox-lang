@@ -1,3 +1,4 @@
+use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 
 use crate::ast::expr::{self, Expr};
@@ -8,39 +9,69 @@ use super::error::ParserError;
 pub struct Parser {
     tokens: Vec<Token>,
     curr: usize,
-    pub had_error: bool,
+    pub has_error: bool,
 }
+
+type ParserResult<T> = std::result::Result<T, ParserError>;
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Parser {
             curr: 0,
             tokens,
-            had_error: false,
+            has_error: false,
         }
     }
-    pub fn parse(&mut self) -> Option<Expr> {
-        match self.expression() {
-            Ok(ex) => return Some(ex),
-            Err(_) => {
-                self.had_error = true;
-                return None;
+    pub fn parse(&mut self) -> Vec<Stmt> {
+        let mut statments: Vec<Stmt> = vec![];
+        while !self.is_at_end() {
+            match self.statment() {
+                Ok(value) => statments.push(value),
+                Err(err) => {
+                    self.has_error = true;
+
+                    return statments;
+                }
             }
         }
+        return statments;
     }
-    fn expression(&mut self) -> Result<Expr, ParserError> {
-        // println!("{}", self.peek().token_type);
+    fn statment(&mut self) -> ParserResult<Stmt> {
+        if self.match_token_types(vec![TokenType::PRINT]) {
+            let t = self.print_statment();
+            match t {
+                Ok(v) => {
+                    return Ok(v);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        let r = self.expression_statment();
+        return r;
+    }
+    fn print_statment(&mut self) -> ParserResult<Stmt> {
+        let value = self.expression()?;
+        self.consume(TokenType::SEMICOLON, "Expect ';' after value.".to_string())?;
+        Ok(Stmt::print_stmt(value))
+    }
 
+    fn expression_statment(&mut self) -> ParserResult<Stmt> {
+        let expr = self.expression()?;
+        self.consume(
+            TokenType::SEMICOLON,
+            "Expect ';' after expression.".to_string(),
+        )?;
+        Ok(Stmt::expresstion_stmt(expr))
+    }
+
+    fn expression(&mut self) -> Result<Expr, ParserError> {
         let expr = self.equality()?;
         if self.match_token_types(vec![TokenType::QUESTION]) {
             let left = self.expression()?;
             self.consume(TokenType::COLON, "Expect ')' after expression.".to_string())?;
             let right = self.expression()?;
             return Ok(Expr::ternary(expr, left, right));
-
-            
         }
-
 
         if self.match_token_types(vec![TokenType::COMMA]) {
             let right = self.expression()?;
@@ -144,13 +175,15 @@ impl Parser {
             ) {
                 Ok(_) => return Ok(Expr::grouping(expr)),
                 Err(err) => {
-                    self.had_error = true;
+                    self.has_error = true;
                     return Err(err);
                 }
             }
         }
 
-        self.had_error = true;
+        if self.match_token_types(vec![TokenType::EOF]) {}
+
+        self.has_error = true;
         Err(ParserError::new(
             self.peek().clone(),
             "Expect expression.".to_string(),
@@ -165,7 +198,7 @@ impl Parser {
         if self.check(token_type) {
             return Ok(self.advance());
         } else {
-            self.had_error = true;
+            self.has_error = true;
             let err = ParserError::new(self.peek().clone(), error_message);
             Err(err)
         }
@@ -223,9 +256,6 @@ impl Parser {
         self.tokens.get(self.curr).unwrap()
     }
     fn is_at_end(&self) -> bool {
-        if self.curr >= self.tokens.len() {
-            return true;
-        }
-        false
+        self.peek().token_type == TokenType::EOF
     }
 }

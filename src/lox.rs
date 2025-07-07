@@ -12,6 +12,7 @@ pub struct Lox {
     pub had_runtime_error: bool,
     pub interpretor: Interpreter,
 }
+
 impl Lox {
     pub fn new() -> Self {
         Self {
@@ -21,14 +22,18 @@ impl Lox {
         }
     }
 
-    pub fn runTimeErro(err: RunTimeError) {
-        println!("\n[line {} ]", err.token.line);
+    pub fn run_time_erro(err: RunTimeError) {
+        println!("\n[line {} Error: {} ]", err.token.line, err.message);
         // self.hadError = true;
     }
 
-    pub fn run_file(file_name: &str) -> io::Result<()> {
-        let mut bytes = File::bytes(File::open(file_name)?);
-        println!("{}", file_name);
+    pub fn run_file(&mut self,file_name: &str) -> io::Result<()> {
+        let mut file = File::open(file_name)?;
+        let mut source  = String::new();
+
+        file.read_to_string(&mut source)?;
+        
+        self.run(source);
         return Ok(());
     }
 
@@ -55,11 +60,12 @@ impl Lox {
         let mut scanner = scanner::Scanner::new(source);
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens);
-        let expression = parser.parse();
-        if parser.had_error || expression.is_none() {
+        let statements = parser.parse();
+
+        if parser.has_error {
             return;
         }
 
-        self.interpretor.interpret(expression.unwrap());
+        self.interpretor.interpret(statements);
     }
 }

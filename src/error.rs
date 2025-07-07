@@ -24,6 +24,7 @@ impl LoxError {
     }
 }
 
+#[derive(Debug)]
 pub struct RunTimeError {
     pub token: Token,
     pub message: String
