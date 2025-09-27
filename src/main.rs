@@ -1,3 +1,6 @@
+// to remove the warnings
+// #![allow(warnings)]
+
 use std::env::{self};
 
 use lox::Lox;
@@ -10,6 +13,7 @@ mod parser;
 mod scanner;
 mod token;
 mod stmt;
+mod Environment;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

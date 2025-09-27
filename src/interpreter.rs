@@ -1,9 +1,9 @@
 use crate::{
-    ast::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr},
+    ast::expr::{self, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr},
     error::RunTimeError,
     lox::Lox,
     stmt::Stmt,
-    token::TokenType,
+    token::{Token, TokenType},
 };
 
 #[derive(Debug)]
@@ -132,6 +132,10 @@ impl Interpreter {
         }
     }
 
+    pub fn visit_var_stmt(&mut self, name: Token,expr: Expr) {
+        
+    }
+
     fn isEqual(&self, l: LiteralValue, r: LiteralValue) -> bool {
         match (l, r) {
             (LiteralValue::Number(l), LiteralValue::Number(r)) => l == r,
@@ -149,6 +153,7 @@ impl Interpreter {
             Expr::Unary(unary_expr) => self.visitUnaryExpr(unary_expr),
             Expr::Separator(_) => todo!(),
             Expr::Ternary(_) => todo!(),
+            Expr::Variable(_) => todo!(),
         }
     }
     fn stringify(&self, value: LiteralValue) -> String {
@@ -175,6 +180,7 @@ impl Interpreter {
         match &statement.expresstion {
             crate::stmt::StmtExpr::Print(expr) => self.visit_print_stmt(expr.clone()),
             crate::stmt::StmtExpr::Expresstion(expr) => self.visit_expresstion_stmt(expr.clone()),
+            crate::stmt::StmtExpr::Var(name, init) => todo!()
         }
         Ok(())
     }

@@ -10,6 +10,7 @@ pub enum Expr {
     Literal(LiteralExpr),
     Separator(SeparatorExpr),
     Grouping(GroupingExpr),
+    Variable(VariableExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +25,10 @@ pub struct GroupingExpr {
     pub expression: Box<Expr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct VariableExpr {
+    pub name: Token,
+}
 
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
@@ -34,7 +39,7 @@ pub enum LiteralValue {
 }
 #[derive(Debug, Clone)]
 pub struct LiteralExpr {
-    pub value: LiteralValue
+    pub value: LiteralValue,
 }
 
 impl Display for LiteralValue {
@@ -75,7 +80,12 @@ impl Display for Expr {
             Expr::Literal(expr) => write!(f, "{}", expr.value),
             Expr::Unary(expr) => write!(f, "({} {})", expr.operator, expr.right),
             Expr::Separator(expr) => write!(f, "(separator {} {})", expr.left, expr.right),
-            Expr::Ternary(exper) => write!(f, "(ternary {} {} {})", exper.condition, exper.left, exper.right)
+            Expr::Ternary(exper) => write!(
+                f,
+                "(ternary {} {} {})",
+                exper.condition, exper.left, exper.right
+            ),
+            Expr::Variable(expr) => write!(f, "(Variable {})", expr.name),
         }
     }
 }
@@ -93,8 +103,11 @@ impl Expr {
             expression: Box::new(expr),
         })
     }
-    pub fn separator(left: Expr, right: Expr) -> Self{
-        Expr::Separator(SeparatorExpr {left: Box::new(left), right: Box::new(right)})
+    pub fn separator(left: Expr, right: Expr) -> Self {
+        Expr::Separator(SeparatorExpr {
+            left: Box::new(left),
+            right: Box::new(right),
+        })
     }
     pub fn unary(operator: Token, right: Expr) -> Self {
         Expr::Unary(UnaryExpr {
@@ -107,11 +120,14 @@ impl Expr {
             value: literal_value,
         })
     }
-    pub fn ternary(condition: Expr,left: Expr,  right: Expr)-> Self{
-    Expr::Ternary(TernaryExpr {
+    pub fn ternary(condition: Expr, left: Expr, right: Expr) -> Self {
+        Expr::Ternary(TernaryExpr {
             condition: Box::new(condition),
             right: Box::new(right),
-            left: Box::new(left)
+            left: Box::new(left),
         })
+    }
+    pub fn variable(name: Token) -> Self {
+        Expr::Variable(VariableExpr { name: name })
     }
 }

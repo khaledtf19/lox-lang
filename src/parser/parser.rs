@@ -1,3 +1,4 @@
+use crate::interpreter;
 use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 
@@ -25,9 +26,9 @@ impl Parser {
     pub fn parse(&mut self) -> Vec<Stmt> {
         let mut statments: Vec<Stmt> = vec![];
         while !self.is_at_end() {
-            match self.statment() {
+            match self.declaration() {
                 Ok(value) => statments.push(value),
-                Err(err) => {
+                Err(_) => {
                     self.has_error = true;
 
                     return statments;
@@ -35,6 +36,30 @@ impl Parser {
             }
         }
         return statments;
+    }
+    fn declaration(&mut self) -> ParserResult<Stmt> {
+        if self.match_token_types(vec![TokenType::VAR]) {
+            return self.var_declaration();
+        }
+
+        return self.statment();
+    }
+    fn var_declaration(&mut self) -> ParserResult<Stmt> {
+        let name = self.consume(TokenType::IDENTIFIER, "Expect variable name.".to_string());
+        let mut initializer: Option<Expr> = None;
+        if self.match_token_types(vec![TokenType::EQUAL]) {
+            initializer = Some(self.expression()?);
+        }
+        match self.consume(
+            TokenType::SEMICOLON,
+            "Expect ';' after variable declaration.".to_string(),
+        ) {
+            Ok(_) => {}
+            Err(err) => {
+                return Err(err);
+            }
+        }
+        return Ok(Stmt::var_stmt(name?, initializer));
     }
     fn statment(&mut self) -> ParserResult<Stmt> {
         if self.match_token_types(vec![TokenType::PRINT]) {
@@ -152,6 +177,7 @@ impl Parser {
             return Ok(Expr::literal(expr::LiteralValue::Nil));
         }
 
+
         if self.match_token_types(vec![TokenType::NUMBER, TokenType::STRING]) {
             let curr = self.previous();
             match curr.literal.unwrap() {
@@ -166,6 +192,11 @@ impl Parser {
         if self.match_token_types(vec![TokenType::COMMA]) {
             println!("here: =>>")
         }
+
+        if self.match_token_types(vec![TokenType::VAR]) {
+            return Ok(Expr::variable(self.previous()));
+        }
+
         if self.match_token_types(vec![TokenType::LEFTPAREN]) {
             let expr = self.expression()?;
 
