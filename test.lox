@@ -5,3 +5,8 @@ print 5 + 5;
 // print 5 + 5;
 
 print "L" + 0 + "L";
+
+var a = 1;
+var b = 2;
+
+print a + b;

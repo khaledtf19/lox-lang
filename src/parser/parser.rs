@@ -23,30 +23,29 @@ impl Parser {
             has_error: false,
         }
     }
-    pub fn parse(&mut self) -> Vec<Stmt> {
+    pub fn parse(&mut self) -> Option<Vec<Stmt>> {
         let mut statments: Vec<Stmt> = vec![];
         while !self.is_at_end() {
             match self.declaration() {
                 Ok(value) => statments.push(value),
                 Err(_) => {
-                    self.has_error = true;
-
-                    return statments;
+                    self.synchronize();
+                    return None;
                 }
             }
         }
-        return statments;
+        return Some(statments);
     }
     fn declaration(&mut self) -> ParserResult<Stmt> {
         if self.match_token_types(vec![TokenType::VAR]) {
             return self.var_declaration();
         }
-
         return self.statment();
     }
     fn var_declaration(&mut self) -> ParserResult<Stmt> {
         let name = self.consume(TokenType::IDENTIFIER, "Expect variable name.".to_string());
         let mut initializer: Option<Expr> = None;
+
         if self.match_token_types(vec![TokenType::EQUAL]) {
             initializer = Some(self.expression()?);
         }
@@ -63,13 +62,7 @@ impl Parser {
     }
     fn statment(&mut self) -> ParserResult<Stmt> {
         if self.match_token_types(vec![TokenType::PRINT]) {
-            let t = self.print_statment();
-            match t {
-                Ok(v) => {
-                    return Ok(v);
-                }
-                Err(e) => return Err(e),
-            }
+            return self.print_statment();
         }
         let r = self.expression_statment();
         return r;
@@ -177,7 +170,6 @@ impl Parser {
             return Ok(Expr::literal(expr::LiteralValue::Nil));
         }
 
-
         if self.match_token_types(vec![TokenType::NUMBER, TokenType::STRING]) {
             let curr = self.previous();
             match curr.literal.unwrap() {
@@ -193,7 +185,7 @@ impl Parser {
             println!("here: =>>")
         }
 
-        if self.match_token_types(vec![TokenType::VAR]) {
+        if self.match_token_types(vec![TokenType::IDENTIFIER]) {
             return Ok(Expr::variable(self.previous()));
         }
 
@@ -237,12 +229,10 @@ impl Parser {
 
     fn synchronize(&mut self) {
         self.advance();
-
         while !self.is_at_end() {
             if self.previous().token_type == TokenType::SEMICOLON {
                 return;
             }
-
             match self.peek().token_type {
                 TokenType::IF
                 | TokenType::FUN

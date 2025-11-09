@@ -1,35 +1,39 @@
 use crate::{
-    ast::expr::{self, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr},
+    Environment::Environment,
+    ast::expr::{
+        BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr, VariableExpr,
+    },
     error::RunTimeError,
-    lox::Lox,
-    stmt::Stmt,
+    stmt::{Stmt, StmtExpr},
     token::{Token, TokenType},
 };
 
 #[derive(Debug)]
 pub struct Interpreter {
     pub has_error: bool,
+    environment: Environment,
 }
 
 type InterpreterResult<T> = std::result::Result<T, RunTimeError>;
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self { has_error: false }
+        Self {
+            has_error: false,
+            environment: Environment::new(),
+        }
     }
-    pub fn visitLitearalExpr(&self, expr: LiteralExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_litearal_expr(&self, expr: LiteralExpr) -> Result<LiteralValue, RunTimeError> {
         Ok(expr.value.clone())
     }
-    pub fn visitGroupingExpr(&self, expr: GroupingExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_grouping_expr(&self, expr: GroupingExpr) -> Result<LiteralValue, RunTimeError> {
         self.evaluate(*expr.expression)
     }
-    pub fn visitUnaryExpr(&self, expr: UnaryExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_unary_expr(&self, expr: UnaryExpr) -> Result<LiteralValue, RunTimeError> {
         let right = self.evaluate(*expr.right)?;
-
         match expr.operator.token_type {
             TokenType::MINUS => match right {
                 LiteralValue::Number(num) => return Ok(LiteralValue::Number(-num)),
-
                 _ => Err(RunTimeError::new(
                     expr.operator.clone(),
                     "Expected a number".to_string(),
@@ -47,7 +51,7 @@ impl Interpreter {
             }
         }
     }
-    pub fn visitBinaryExpr(&self, expr: BinaryExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_binary_expr(&self, expr: BinaryExpr) -> Result<LiteralValue, RunTimeError> {
         let left = self.evaluate(*expr.left)?;
         let right = self.evaluate(*expr.right)?;
 
@@ -119,6 +123,10 @@ impl Interpreter {
         }
     }
 
+    pub fn visit_variable_expr(&self, expr: VariableExpr) -> Result<LiteralValue, RunTimeError> {
+        return self.environment.get(expr.name);
+    }
+
     pub fn visit_expresstion_stmt(&mut self, expr: Expr) {
         self.evaluate(expr);
     }
@@ -132,8 +140,20 @@ impl Interpreter {
         }
     }
 
-    pub fn visit_var_stmt(&mut self, name: Token,expr: Expr) {
-        
+    pub fn visit_var_stmt(&mut self, name: Token, init: Option<Expr>) {
+        match init {
+            Some(expr) => match self.evaluate(expr) {
+                Ok(val) => {
+                    self.environment.define(name.lexeme, Some(val));
+                }
+                Err(_) => {
+                    self.has_error = true;
+                }
+            },
+            None => {
+                self.environment.define(name.lexeme, None);
+            }
+        }
     }
 
     fn isEqual(&self, l: LiteralValue, r: LiteralValue) -> bool {
@@ -147,13 +167,13 @@ impl Interpreter {
     }
     fn evaluate(&self, expr: Expr) -> Result<LiteralValue, RunTimeError> {
         match expr {
-            Expr::Binary(binary_expr) => self.visitBinaryExpr(binary_expr),
-            Expr::Grouping(grouping_expr) => self.visitGroupingExpr(grouping_expr),
-            Expr::Literal(literal_expr) => self.visitLitearalExpr(literal_expr),
-            Expr::Unary(unary_expr) => self.visitUnaryExpr(unary_expr),
+            Expr::Binary(binary_expr) => self.visit_binary_expr(binary_expr),
+            Expr::Grouping(grouping_expr) => self.visit_grouping_expr(grouping_expr),
+            Expr::Literal(literal_expr) => self.visit_litearal_expr(literal_expr),
+            Expr::Unary(unary_expr) => self.visit_unary_expr(unary_expr),
             Expr::Separator(_) => todo!(),
             Expr::Ternary(_) => todo!(),
-            Expr::Variable(_) => todo!(),
+            Expr::Variable(var_expr) => self.visit_variable_expr(var_expr),
         }
     }
     fn stringify(&self, value: LiteralValue) -> String {
@@ -172,7 +192,7 @@ impl Interpreter {
     }
     pub fn interpret(&mut self, statements: Vec<Stmt>) {
         statements.iter().for_each(|stmt| match self.execute(stmt) {
-            Ok(st) => {}
+            Ok(_) => {}
             Err(_) => self.has_error = true,
         });
     }
@@ -180,7 +200,9 @@ impl Interpreter {
         match &statement.expresstion {
             crate::stmt::StmtExpr::Print(expr) => self.visit_print_stmt(expr.clone()),
             crate::stmt::StmtExpr::Expresstion(expr) => self.visit_expresstion_stmt(expr.clone()),
-            crate::stmt::StmtExpr::Var(name, init) => todo!()
+            crate::stmt::StmtExpr::Var(name, init) => {
+                self.visit_var_stmt(name.clone(), init.clone())
+            }
         }
         Ok(())
     }

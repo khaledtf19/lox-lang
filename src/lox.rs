@@ -22,17 +22,17 @@ impl Lox {
         }
     }
 
-    pub fn run_time_erro(err: RunTimeError) {
+    pub fn run_time_error(err: RunTimeError) {
         println!("\n[line {} Error: {} ]", err.token.line, err.message);
         // self.hadError = true;
     }
 
-    pub fn run_file(&mut self,file_name: &str) -> io::Result<()> {
+    pub fn run_file(&mut self, file_name: &str) -> io::Result<()> {
         let mut file = File::open(file_name)?;
-        let mut source  = String::new();
+        let mut source = String::new();
 
         file.read_to_string(&mut source)?;
-        
+
         self.run(source);
         return Ok(());
     }
@@ -62,10 +62,11 @@ impl Lox {
         let mut parser = Parser::new(tokens);
         let statements = parser.parse();
 
-        if parser.has_error {
-            return;
+        match statements {
+            Some(stmts) => {
+                self.interpretor.interpret(stmts);
+            }
+            None => {}
         }
-
-        self.interpretor.interpret(statements);
     }
 }
