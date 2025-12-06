@@ -74,12 +74,36 @@ impl Parser {
     }
 
     fn expression_statment(&mut self) -> ParserResult<Stmt> {
-        let expr = self.expression()?;
+        let expr = self.assignment()?;
         self.consume(
             TokenType::SEMICOLON,
             "Expect ';' after expression.".to_string(),
         )?;
         Ok(Stmt::expresstion_stmt(expr))
+    }
+
+    fn assignment(&mut self) -> Result<Expr, ParserError> {
+        let expr = self.equality()?;
+
+        if self.match_token_types(vec![TokenType::EQUAL]) {
+            let equals = self.previous();
+            let value = self.assignment()?;
+
+            match &expr {
+                Expr::Variable(variable_expr) => {
+                    let name = variable_expr.name.clone();
+                    return Ok(Expr::assign(name, value.clone()));
+                }
+                _ => {
+                    return Err(ParserError::new(
+                        equals,
+                        "Invalid assignment target.".to_string(),
+                    ));
+                }
+            }
+        }
+
+        return Ok(expr);
     }
 
     fn expression(&mut self) -> Result<Expr, ParserError> {

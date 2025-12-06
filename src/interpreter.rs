@@ -1,10 +1,11 @@
 use crate::{
     Environment::Environment,
     ast::expr::{
-        BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr, VariableExpr,
+        AssessmentExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr,
+        VariableExpr,
     },
     error::RunTimeError,
-    stmt::{Stmt, StmtExpr},
+    stmt::Stmt,
     token::{Token, TokenType},
 };
 
@@ -26,10 +27,13 @@ impl Interpreter {
     pub fn visit_litearal_expr(&self, expr: LiteralExpr) -> Result<LiteralValue, RunTimeError> {
         Ok(expr.value.clone())
     }
-    pub fn visit_grouping_expr(&self, expr: GroupingExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_grouping_expr(
+        &mut self,
+        expr: GroupingExpr,
+    ) -> Result<LiteralValue, RunTimeError> {
         self.evaluate(*expr.expression)
     }
-    pub fn visit_unary_expr(&self, expr: UnaryExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_unary_expr(&mut self, expr: UnaryExpr) -> Result<LiteralValue, RunTimeError> {
         let right = self.evaluate(*expr.right)?;
         match expr.operator.token_type {
             TokenType::MINUS => match right {
@@ -51,7 +55,7 @@ impl Interpreter {
             }
         }
     }
-    pub fn visit_binary_expr(&self, expr: BinaryExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_binary_expr(&mut self, expr: BinaryExpr) -> Result<LiteralValue, RunTimeError> {
         let left = self.evaluate(*expr.left)?;
         let right = self.evaluate(*expr.right)?;
 
@@ -155,6 +159,11 @@ impl Interpreter {
             }
         }
     }
+    pub fn visit_assign_expr(&mut self, exper: AssessmentExpr) -> InterpreterResult<LiteralValue> {
+        let value = self.evaluate(*exper.value)?;
+        self.environment.assign(exper.name.clone(), value.clone())?;
+        Ok(value.clone())
+    }
 
     fn isEqual(&self, l: LiteralValue, r: LiteralValue) -> bool {
         match (l, r) {
@@ -165,7 +174,7 @@ impl Interpreter {
             _ => false,
         }
     }
-    fn evaluate(&self, expr: Expr) -> Result<LiteralValue, RunTimeError> {
+    fn evaluate(&mut self, expr: Expr) -> Result<LiteralValue, RunTimeError> {
         match expr {
             Expr::Binary(binary_expr) => self.visit_binary_expr(binary_expr),
             Expr::Grouping(grouping_expr) => self.visit_grouping_expr(grouping_expr),
@@ -174,6 +183,7 @@ impl Interpreter {
             Expr::Separator(_) => todo!(),
             Expr::Ternary(_) => todo!(),
             Expr::Variable(var_expr) => self.visit_variable_expr(var_expr),
+            Expr::Assgin(assessment_expr) => self.visit_assign_expr(assessment_expr),
         }
     }
     fn stringify(&self, value: LiteralValue) -> String {

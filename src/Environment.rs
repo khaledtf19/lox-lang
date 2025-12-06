@@ -38,4 +38,15 @@ impl Environment {
             }
         }
     }
+    pub fn assign(&mut self, name: Token, value: LiteralValue) -> Result<(), RunTimeError> {
+        if self.values.contains_key(&name.lexeme) {
+            self.values.insert(name.lexeme, value);
+            Ok(())
+        } else {
+            Err(RunTimeError::new(
+                name.clone(),
+                "Undefined variable '".to_string() + &name.lexeme + "'.",
+            ))
+        }
+    }
 }

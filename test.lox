@@ -2,11 +2,16 @@ print "Hello1";
 
 print 5 + 5;
 
-// print 5 + 5;
-
 print "L" + 0 + "L";
 
 var a = 1;
 var b = 2;
 
+a = 9;
+
 print a + b;
+
+var hello = "Hello";
+hello = "Hello world!";
+
+print hello;

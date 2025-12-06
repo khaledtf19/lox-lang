@@ -11,6 +11,7 @@ pub enum Expr {
     Separator(SeparatorExpr),
     Grouping(GroupingExpr),
     Variable(VariableExpr),
+    Assgin(AssessmentExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +29,12 @@ pub struct GroupingExpr {
 #[derive(Debug, Clone)]
 pub struct VariableExpr {
     pub name: Token,
+}
+
+#[derive(Debug, Clone)]
+pub struct AssessmentExpr {
+    pub name: Token,
+    pub value: Box<Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +93,7 @@ impl Display for Expr {
                 exper.condition, exper.left, exper.right
             ),
             Expr::Variable(expr) => write!(f, "(Variable {})", expr.name),
+            Expr::Assgin(assessment_expr) => todo!(),
         }
     }
 }
@@ -129,5 +137,12 @@ impl Expr {
     }
     pub fn variable(name: Token) -> Self {
         Expr::Variable(VariableExpr { name: name })
+    }
+
+    pub fn assign(name: Token, value: Expr) -> Expr {
+        Expr::Assgin(AssessmentExpr {
+            name,
+            value: Box::new(value),
+        })
     }
 }
