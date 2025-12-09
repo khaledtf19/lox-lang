@@ -5,7 +5,7 @@ use crate::{
         VariableExpr,
     },
     error::RunTimeError,
-    stmt::Stmt,
+    stmt::{Stmt, StmtExpr},
     token::{Token, TokenType},
 };
 
@@ -21,7 +21,7 @@ impl Interpreter {
     pub fn new() -> Self {
         Self {
             has_error: false,
-            environment: Environment::new(),
+            environment: Environment::new(None),
         }
     }
     pub fn visit_litearal_expr(&self, expr: LiteralExpr) -> Result<LiteralValue, RunTimeError> {
@@ -213,7 +213,28 @@ impl Interpreter {
             crate::stmt::StmtExpr::Var(name, init) => {
                 self.visit_var_stmt(name.clone(), init.clone())
             }
+            crate::stmt::StmtExpr::Block(statements) => self.visit_block_stmt(statements),
         }
         Ok(())
+    }
+    pub fn visit_block_stmt(&mut self, statements: &Vec<Stmt>) {
+        self.exeucute_block(
+            statements,
+            Environment::new(Some(Box::new(self.environment.clone()))),
+        );
+    }
+    pub fn exeucute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
+        let previous = self.environment.clone();
+        self.environment = environment;
+        for statement in statements {
+            match self.execute(&statement) {
+                Ok(_) => {}
+                Err(_) => {
+                    self.environment = previous;
+                    return;
+                }
+            }
+        }
+        self.environment = previous;
     }
 }

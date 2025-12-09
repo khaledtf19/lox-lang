@@ -64,6 +64,10 @@ impl Parser {
         if self.match_token_types(vec![TokenType::PRINT]) {
             return self.print_statment();
         }
+        if self.match_token_types(vec![TokenType::LEFTBRACE]) {
+            return Ok(Stmt::block_stmt(self.block()));
+        }
+
         let r = self.expression_statment();
         return r;
     }
@@ -80,6 +84,29 @@ impl Parser {
             "Expect ';' after expression.".to_string(),
         )?;
         Ok(Stmt::expresstion_stmt(expr))
+    }
+
+    fn block(&mut self) -> Vec<Stmt> {
+        let mut statements = vec![];
+        while !self.check(TokenType::RIGHTBRACE) && !self.is_at_end() {
+            match self.declaration() {
+                Ok(stmt) => {
+                    statements.push(stmt);
+                }
+                Err(_) => {
+                    self.synchronize();
+                    return statements;
+                }
+            }
+        }
+
+        match self.consume(TokenType::RIGHTBRACE, "Expect '}' after block.".to_string()) {
+            Ok(_) => return statements,
+            Err(_) => {
+                self.synchronize();
+                return statements;
+            }
+        }
     }
 
     fn assignment(&mut self) -> Result<Expr, ParserError> {

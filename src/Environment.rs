@@ -4,14 +4,16 @@ use crate::{ast::expr::LiteralValue, error::RunTimeError, token::Token};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
+    pub enclosing: Option<Box<Environment>>,
     pub values: HashMap<String, LiteralValue>,
 }
 
 type EnvironmentResult<T> = std::result::Result<T, RunTimeError>;
 
 impl Environment {
-    pub fn new() -> Self {
+    pub fn new(enclosing: Option<Box<Environment>>) -> Self {
         Self {
+            enclosing,
             values: HashMap::new(),
         }
     }
@@ -30,12 +32,15 @@ impl Environment {
     pub fn get(&self, name: Token) -> EnvironmentResult<LiteralValue> {
         match self.values.get(&name.lexeme) {
             Some(value) => return Ok(value.clone()),
-            None => {
-                return Err(RunTimeError::new(
-                    name.clone(),
-                    "Undefined variable '".to_string() + &name.lexeme + "'.",
-                ));
-            }
+            None => match &self.enclosing {
+                Some(enclosing) => enclosing.get(name),
+                None => {
+                    return Err(RunTimeError::new(
+                        name.clone(),
+                        "Undefined variable '".to_string() + &name.lexeme + "'.",
+                    ));
+                }
+            },
         }
     }
     pub fn assign(&mut self, name: Token, value: LiteralValue) -> Result<(), RunTimeError> {
@@ -43,10 +48,13 @@ impl Environment {
             self.values.insert(name.lexeme, value);
             Ok(())
         } else {
-            Err(RunTimeError::new(
-                name.clone(),
-                "Undefined variable '".to_string() + &name.lexeme + "'.",
-            ))
+            match &mut self.enclosing {
+                Some(enclosing) => enclosing.assign(name, value),
+                None => Err(RunTimeError::new(
+                    name.clone(),
+                    "Undefined variable '".to_string() + &name.lexeme + "'.",
+                )),
+            }
         }
     }
 }

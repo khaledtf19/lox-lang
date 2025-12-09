@@ -10,6 +10,7 @@ pub enum StmtExpr {
     Print(Expr),
     Expresstion(Expr),
     Var(Token, Option<Expr>),
+    Block(Vec<Stmt>),
 }
 
 impl Stmt {
@@ -28,6 +29,12 @@ impl Stmt {
     pub fn var_stmt(name: Token, initializer: Option<Expr>) -> Self {
         Self {
             expresstion: StmtExpr::Var(name, initializer),
+        }
+    }
+
+    pub fn block_stmt(statements: Vec<Stmt>) -> Self {
+        Self {
+            expresstion: StmtExpr::Block(statements),
         }
     }
 }
