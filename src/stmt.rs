@@ -11,6 +11,7 @@ pub enum StmtExpr {
     Expresstion(Expr),
     Var(Token, Option<Expr>),
     Block(Vec<Stmt>),
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
 }
 
 impl Stmt {
@@ -35,6 +36,16 @@ impl Stmt {
     pub fn block_stmt(statements: Vec<Stmt>) -> Self {
         Self {
             expresstion: StmtExpr::Block(statements),
+        }
+    }
+
+    pub fn if_stmt(
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
+    ) -> Self {
+        Self {
+            expresstion: StmtExpr::If(condition, then_branch, else_branch),
         }
     }
 }

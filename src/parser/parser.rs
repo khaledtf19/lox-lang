@@ -1,4 +1,3 @@
-use crate::interpreter;
 use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 
@@ -61,6 +60,9 @@ impl Parser {
         return Ok(Stmt::var_stmt(name?, initializer));
     }
     fn statment(&mut self) -> ParserResult<Stmt> {
+        if self.match_token_types(vec![TokenType::IF]) {
+            return self.if_statment();
+        }
         if self.match_token_types(vec![TokenType::PRINT]) {
             return self.print_statment();
         }
@@ -70,6 +72,21 @@ impl Parser {
 
         let r = self.expression_statment();
         return r;
+    }
+    fn if_statment(&mut self) -> ParserResult<Stmt> {
+        self.consume(TokenType::LEFTPAREN, "Expect '(' after 'if'.".to_string())?;
+        let condition = self.expression()?;
+        self.consume(
+            TokenType::RIGHTPAREN,
+            "Expect ')' after if condition.".to_string(),
+        )?;
+
+        let then_branch = Box::new(self.statment()?);
+        let mut else_branch = None;
+        if self.match_token_types(vec![TokenType::ELSE]) {
+            else_branch = Some(Box::new(self.statment()?));
+        }
+        return Ok(Stmt::if_stmt(condition, then_branch, else_branch));
     }
     fn print_statment(&mut self) -> ParserResult<Stmt> {
         let value = self.expression()?;
@@ -110,7 +127,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr, ParserError> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if self.match_token_types(vec![TokenType::EQUAL]) {
             let equals = self.previous();
@@ -132,7 +149,25 @@ impl Parser {
 
         return Ok(expr);
     }
+    fn or(&mut self) -> ParserResult<Expr> {
+        let mut expr = self.and()?;
+        while self.match_token_types(vec![TokenType::OR]) {
+            let operator = self.previous();
+            let right = self.and()?;
+            expr = Expr::logical(expr, operator, right)
+        }
+        Ok(expr)
+    }
 
+    fn and(&mut self) -> ParserResult<Expr> {
+        let mut expr = self.equality()?;
+        while self.match_token_types(vec![TokenType::AND]) {
+            let operator = self.previous();
+            let right = self.and()?;
+            expr = Expr::logical(expr, operator, right)
+        }
+        Ok(expr)
+    }
     fn expression(&mut self) -> Result<Expr, ParserError> {
         let expr = self.equality()?;
         if self.match_token_types(vec![TokenType::QUESTION]) {

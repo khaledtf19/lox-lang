@@ -1,8 +1,10 @@
+use std::any::Any;
+
 use crate::{
     Environment::Environment,
     ast::expr::{
-        AssessmentExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, UnaryExpr,
-        VariableExpr,
+        AssessmentExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, LogicalExpr,
+        UnaryExpr, VariableExpr,
     },
     error::RunTimeError,
     stmt::{Stmt, StmtExpr},
@@ -24,17 +26,31 @@ impl Interpreter {
             environment: Environment::new(None),
         }
     }
-    pub fn visit_litearal_expr(&self, expr: LiteralExpr) -> Result<LiteralValue, RunTimeError> {
+    pub fn visit_litearal_expr(&self, expr: &LiteralExpr) -> Result<LiteralValue, RunTimeError> {
         Ok(expr.value.clone())
+    }
+    pub fn visit_logical_exper(&mut self, expr: &LogicalExpr) -> InterpreterResult<LiteralValue> {
+        let left = self.evaluate(&expr.left)?;
+
+        if expr.operator.token_type == TokenType::OR {
+            if self.is_truthy(left.clone()) {
+                return Ok(left);
+            }
+        } else {
+            if !self.is_truthy(left.clone()) {
+                return Ok(left);
+            }
+        }
+        return self.evaluate(&expr.right);
     }
     pub fn visit_grouping_expr(
         &mut self,
-        expr: GroupingExpr,
+        expr: &GroupingExpr,
     ) -> Result<LiteralValue, RunTimeError> {
-        self.evaluate(*expr.expression)
+        self.evaluate(&expr.expression)
     }
-    pub fn visit_unary_expr(&mut self, expr: UnaryExpr) -> Result<LiteralValue, RunTimeError> {
-        let right = self.evaluate(*expr.right)?;
+    pub fn visit_unary_expr(&mut self, expr: &UnaryExpr) -> Result<LiteralValue, RunTimeError> {
+        let right = self.evaluate(&expr.right)?;
         match expr.operator.token_type {
             TokenType::MINUS => match right {
                 LiteralValue::Number(num) => return Ok(LiteralValue::Number(-num)),
@@ -55,9 +71,9 @@ impl Interpreter {
             }
         }
     }
-    pub fn visit_binary_expr(&mut self, expr: BinaryExpr) -> Result<LiteralValue, RunTimeError> {
-        let left = self.evaluate(*expr.left)?;
-        let right = self.evaluate(*expr.right)?;
+    pub fn visit_binary_expr(&mut self, expr: &BinaryExpr) -> Result<LiteralValue, RunTimeError> {
+        let left = self.evaluate(&expr.left)?;
+        let right = self.evaluate(&expr.right)?;
 
         match (left, right) {
             (LiteralValue::Number(l), LiteralValue::Number(r)) => match expr.operator.token_type {
@@ -117,8 +133,8 @@ impl Interpreter {
                 )),
             },
             (l, r) => match expr.operator.token_type {
-                TokenType::EQUALEQUAL => return Ok(LiteralValue::Boolean(self.isEqual(l, r))),
-                TokenType::BANGEQUAL => return Ok(LiteralValue::Boolean(self.isEqual(l, r))),
+                TokenType::EQUALEQUAL => return Ok(LiteralValue::Boolean(self.is_equal(l, r))),
+                TokenType::BANGEQUAL => return Ok(LiteralValue::Boolean(self.is_equal(l, r))),
                 _ => Err(RunTimeError::new(
                     expr.operator.clone(),
                     "Unexpected operator".to_string(),
@@ -127,16 +143,40 @@ impl Interpreter {
         }
     }
 
-    pub fn visit_variable_expr(&self, expr: VariableExpr) -> Result<LiteralValue, RunTimeError> {
-        return self.environment.get(expr.name);
+    pub fn visit_variable_expr(&self, expr: &VariableExpr) -> Result<LiteralValue, RunTimeError> {
+        return self.environment.get(expr.name.clone());
     }
 
-    pub fn visit_expresstion_stmt(&mut self, expr: Expr) {
-        self.evaluate(expr);
+    pub fn visit_expresstion_stmt(&mut self, expr: &Expr) {
+        self.evaluate(&expr).unwrap();
+    }
+    pub fn visit_if_stmt(
+        &mut self,
+        condition: &Expr,
+        then_branch: &Stmt,
+        else_branch: Option<&Stmt>,
+    ) -> InterpreterResult<()> {
+        let is_true = self.evaluate(condition)?;
+        if self.is_truthy(is_true) {
+            self.execute(then_branch)?;
+            Ok(())
+        } else {
+            if let Some(branch2) = else_branch {
+                self.execute(branch2)?;
+            }
+            Ok(())
+        }
+    }
+    fn is_truthy(&self, value: LiteralValue) -> bool {
+        match value {
+            LiteralValue::String(_) | LiteralValue::Number(_) => return true,
+            LiteralValue::Boolean(bol) => return bol,
+            LiteralValue::Nil => return false,
+        }
     }
 
-    pub fn visit_print_stmt(&mut self, expr: Expr) {
-        match self.evaluate(expr) {
+    pub fn visit_print_stmt(&mut self, expr: &Expr) {
+        match self.evaluate(&expr) {
             Ok(value) => println!("{}", self.stringify(value)),
             Err(_) => {
                 self.has_error = true;
@@ -144,28 +184,28 @@ impl Interpreter {
         }
     }
 
-    pub fn visit_var_stmt(&mut self, name: Token, init: Option<Expr>) {
+    pub fn visit_var_stmt(&mut self, name: &Token, init: &Option<Expr>) {
         match init {
-            Some(expr) => match self.evaluate(expr) {
+            Some(expr) => match self.evaluate(&expr) {
                 Ok(val) => {
-                    self.environment.define(name.lexeme, Some(val));
+                    self.environment.define(name.lexeme.clone(), Some(val));
                 }
                 Err(_) => {
                     self.has_error = true;
                 }
             },
             None => {
-                self.environment.define(name.lexeme, None);
+                self.environment.define(name.lexeme.clone(), None);
             }
         }
     }
-    pub fn visit_assign_expr(&mut self, exper: AssessmentExpr) -> InterpreterResult<LiteralValue> {
-        let value = self.evaluate(*exper.value)?;
+    pub fn visit_assign_expr(&mut self, exper: &AssessmentExpr) -> InterpreterResult<LiteralValue> {
+        let value = self.evaluate(&exper.value)?;
         self.environment.assign(exper.name.clone(), value.clone())?;
         Ok(value.clone())
     }
 
-    fn isEqual(&self, l: LiteralValue, r: LiteralValue) -> bool {
+    fn is_equal(&self, l: LiteralValue, r: LiteralValue) -> bool {
         match (l, r) {
             (LiteralValue::Number(l), LiteralValue::Number(r)) => l == r,
             (LiteralValue::String(l), LiteralValue::String(r)) => l == r,
@@ -174,7 +214,7 @@ impl Interpreter {
             _ => false,
         }
     }
-    fn evaluate(&mut self, expr: Expr) -> Result<LiteralValue, RunTimeError> {
+    fn evaluate(&mut self, expr: &Expr) -> Result<LiteralValue, RunTimeError> {
         match expr {
             Expr::Binary(binary_expr) => self.visit_binary_expr(binary_expr),
             Expr::Grouping(grouping_expr) => self.visit_grouping_expr(grouping_expr),
@@ -184,6 +224,7 @@ impl Interpreter {
             Expr::Ternary(_) => todo!(),
             Expr::Variable(var_expr) => self.visit_variable_expr(var_expr),
             Expr::Assgin(assessment_expr) => self.visit_assign_expr(assessment_expr),
+            Expr::Logical(logical_expr) => self.visit_logical_exper(logical_expr),
         }
     }
     fn stringify(&self, value: LiteralValue) -> String {
@@ -208,12 +249,13 @@ impl Interpreter {
     }
     pub fn execute(&mut self, statement: &Stmt) -> InterpreterResult<()> {
         match &statement.expresstion {
-            crate::stmt::StmtExpr::Print(expr) => self.visit_print_stmt(expr.clone()),
-            crate::stmt::StmtExpr::Expresstion(expr) => self.visit_expresstion_stmt(expr.clone()),
-            crate::stmt::StmtExpr::Var(name, init) => {
-                self.visit_var_stmt(name.clone(), init.clone())
-            }
+            crate::stmt::StmtExpr::Print(expr) => self.visit_print_stmt(expr),
+            crate::stmt::StmtExpr::Expresstion(expr) => self.visit_expresstion_stmt(expr),
+            crate::stmt::StmtExpr::Var(name, init) => self.visit_var_stmt(name, init),
             crate::stmt::StmtExpr::Block(statements) => self.visit_block_stmt(statements),
+            crate::stmt::StmtExpr::If(condition, then_branch, else_branch) => {
+                return self.visit_if_stmt(condition, then_branch, else_branch.as_deref());
+            }
         }
         Ok(())
     }

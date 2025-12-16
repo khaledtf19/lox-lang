@@ -12,12 +12,20 @@ pub enum Expr {
     Grouping(GroupingExpr),
     Variable(VariableExpr),
     Assgin(AssessmentExpr),
+    Logical(LogicalExpr),
 }
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpr {
     pub operator: Token,
     pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LogicalExpr {
+    pub left: Box<Expr>,
+    pub operator: Token,
     pub right: Box<Expr>,
 }
 
@@ -94,6 +102,7 @@ impl Display for Expr {
             ),
             Expr::Variable(expr) => write!(f, "(Variable {})", expr.name),
             Expr::Assgin(assessment_expr) => todo!(),
+            Expr::Logical(logical_expr) => todo!(),
         }
     }
 }
@@ -106,6 +115,15 @@ impl Expr {
             right: Box::new(right),
         })
     }
+
+    pub fn logical(left: Expr, operator: Token, right: Expr) -> Self {
+        Expr::Logical(LogicalExpr {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
+        })
+    }
+
     pub fn grouping(expr: Expr) -> Self {
         Expr::Grouping(GroupingExpr {
             expression: Box::new(expr),
