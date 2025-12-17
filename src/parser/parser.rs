@@ -1,7 +1,9 @@
+use std::vec::IntoIter;
+
 use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 
-use crate::ast::expr::{self, Expr};
+use crate::ast::expr::{self, Expr, LiteralExpr, LiteralValue};
 
 use super::error::ParserError;
 
@@ -59,12 +61,32 @@ impl Parser {
         }
         return Ok(Stmt::var_stmt(name?, initializer));
     }
+    fn while_statement(&mut self) -> ParserResult<Stmt> {
+        self.consume(
+            TokenType::LEFTPAREN,
+            "Expect '(' after 'while'.".to_string(),
+        )?;
+        let condition = self.expression()?;
+        self.consume(
+            TokenType::RIGHTPAREN,
+            "Expect ')' after condition.".to_string(),
+        )?;
+        let body = self.statment()?;
+
+        return Ok(Stmt::while_stmt(condition, body));
+    }
     fn statment(&mut self) -> ParserResult<Stmt> {
+        if self.match_token_types(vec![TokenType::FOR]) {
+            return self.for_statement();
+        }
         if self.match_token_types(vec![TokenType::IF]) {
             return self.if_statment();
         }
         if self.match_token_types(vec![TokenType::PRINT]) {
             return self.print_statment();
+        }
+        if self.match_token_types(vec![TokenType::WHILE]) {
+            return self.while_statement();
         }
         if self.match_token_types(vec![TokenType::LEFTBRACE]) {
             return Ok(Stmt::block_stmt(self.block()));
@@ -72,6 +94,54 @@ impl Parser {
 
         let r = self.expression_statment();
         return r;
+    }
+    fn for_statement(&mut self) -> ParserResult<Stmt> {
+        self.consume(TokenType::LEFTPAREN, "Expect '(' after 'for'.".to_string())?;
+        let mut initializer = None;
+
+        if self.match_token_types(vec![TokenType::SEMICOLON]) {
+            initializer = None;
+        } else if self.match_token_types(vec![TokenType::VAR]) {
+            initializer = Some(self.var_declaration()?);
+        } else {
+            initializer = Some(self.expression_statment()?);
+        }
+
+        let mut condition = None;
+        if !self.check(TokenType::SEMICOLON) {
+            condition = Some(self.expression()?);
+        }
+        self.consume(
+            TokenType::SEMICOLON,
+            "Expect ';' after loop condition.".to_string(),
+        )?;
+
+        let mut increment = None;
+        if !self.check(TokenType::RIGHTPAREN) {
+            increment = Some(self.expression()?);
+        }
+        self.consume(
+            TokenType::RIGHTPAREN,
+            "Expect ')' after for clauses.".to_string(),
+        )?;
+
+        let mut body = self.statment()?;
+
+        if let Some(inc) = increment {
+            body = Stmt::block_stmt(vec![body, Stmt::expresstion_stmt(inc)]);
+        }
+
+        if condition.is_none() {
+            condition = Some(Expr::Literal(LiteralExpr {
+                value: LiteralValue::Boolean(true),
+            }));
+        }
+        body = Stmt::while_stmt(condition.unwrap(), body);
+
+        if let Some(init) = initializer {
+            body = Stmt::block_stmt(vec![init, body]);
+        }
+        Ok(body)
     }
     fn if_statment(&mut self) -> ParserResult<Stmt> {
         self.consume(TokenType::LEFTPAREN, "Expect '(' after 'if'.".to_string())?;
@@ -132,7 +202,6 @@ impl Parser {
         if self.match_token_types(vec![TokenType::EQUAL]) {
             let equals = self.previous();
             let value = self.assignment()?;
-
             match &expr {
                 Expr::Variable(variable_expr) => {
                     let name = variable_expr.name.clone();
@@ -169,19 +238,20 @@ impl Parser {
         Ok(expr)
     }
     fn expression(&mut self) -> Result<Expr, ParserError> {
-        let expr = self.equality()?;
-        if self.match_token_types(vec![TokenType::QUESTION]) {
-            let left = self.expression()?;
-            self.consume(TokenType::COLON, "Expect ')' after expression.".to_string())?;
-            let right = self.expression()?;
-            return Ok(Expr::ternary(expr, left, right));
-        }
+        return self.assignment();
+        // let expr = self.equality()?;
+        // if self.match_token_types(vec![TokenType::QUESTION]) {
+        //     let left = self.expression()?;
+        //     self.consume(TokenType::COLON, "Expect ')' after expression.".to_string())?;
+        //     let right = self.expression()?;
+        //     return Ok(Expr::ternary(expr, left, right));
+        // }
 
-        if self.match_token_types(vec![TokenType::COMMA]) {
-            let right = self.expression()?;
-            return Ok(Expr::separator(expr, right));
-        }
-        Ok(expr)
+        // if self.match_token_types(vec![TokenType::COMMA]) {
+        //     let right = self.expression()?;
+        //     return Ok(Expr::separator(expr, right));
+        // }
+        // Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr, ParserError> {

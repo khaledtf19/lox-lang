@@ -12,6 +12,7 @@ pub enum StmtExpr {
     Var(Token, Option<Expr>),
     Block(Vec<Stmt>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
+    While(Expr, Box<Stmt>),
 }
 
 impl Stmt {
@@ -46,6 +47,12 @@ impl Stmt {
     ) -> Self {
         Self {
             expresstion: StmtExpr::If(condition, then_branch, else_branch),
+        }
+    }
+
+    pub fn while_stmt(condition: Expr, body: Stmt) -> Self {
+        Self {
+            expresstion: StmtExpr::While(condition, Box::new(body)),
         }
     }
 }

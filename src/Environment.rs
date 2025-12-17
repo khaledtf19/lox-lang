@@ -1,17 +1,19 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{ast::expr::LiteralValue, error::RunTimeError, token::Token};
 
+pub type Env = Rc<RefCell<Environment>>;
+
 #[derive(Debug, Clone)]
 pub struct Environment {
-    pub enclosing: Option<Box<Environment>>,
+    pub enclosing: Option<Env>,
     pub values: HashMap<String, LiteralValue>,
 }
 
 type EnvironmentResult<T> = std::result::Result<T, RunTimeError>;
 
 impl Environment {
-    pub fn new(enclosing: Option<Box<Environment>>) -> Self {
+    pub fn new(enclosing: Option<Env>) -> Self {
         Self {
             enclosing,
             values: HashMap::new(),
@@ -33,7 +35,7 @@ impl Environment {
         match self.values.get(&name.lexeme) {
             Some(value) => return Ok(value.clone()),
             None => match &self.enclosing {
-                Some(enclosing) => enclosing.get(name),
+                Some(enclosing) => enclosing.borrow().get(name),
                 None => {
                     return Err(RunTimeError::new(
                         name.clone(),
@@ -49,7 +51,10 @@ impl Environment {
             Ok(())
         } else {
             match &mut self.enclosing {
-                Some(enclosing) => enclosing.assign(name, value),
+                Some(enclosing) => {
+                    let mut enclosing = enclosing.borrow_mut();
+                    enclosing.assign(name, value)
+                }
                 None => Err(RunTimeError::new(
                     name.clone(),
                     "Undefined variable '".to_string() + &name.lexeme + "'.",
