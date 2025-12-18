@@ -1,4 +1,4 @@
-use std::{any::Any, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     Environment::{Env, Environment},
@@ -7,7 +7,7 @@ use crate::{
         UnaryExpr, VariableExpr,
     },
     error::RunTimeError,
-    stmt::{Stmt, StmtExpr},
+    stmt::{ControlFlow, Stmt, StmtExpr, StmtResult},
     token::{Token, TokenType},
 };
 
@@ -147,25 +147,24 @@ impl Interpreter {
         return self.environment.borrow().get(expr.name.clone());
     }
 
-    pub fn visit_expresstion_stmt(&mut self, expr: &Expr) -> InterpreterResult<()> {
+    pub fn visit_expresstion_stmt(&mut self, expr: &Expr) -> StmtResult {
         self.evaluate(&expr)?;
-        Ok(())
+        return Ok(None);
     }
     pub fn visit_if_stmt(
         &mut self,
         condition: &Expr,
         then_branch: &Stmt,
         else_branch: Option<&Stmt>,
-    ) -> InterpreterResult<()> {
+    ) -> StmtResult {
         let is_true = self.evaluate(condition)?;
         if self.is_truthy(is_true) {
-            self.execute(then_branch)?;
-            Ok(())
+            return self.execute(then_branch);
         } else {
             if let Some(branch2) = else_branch {
-                self.execute(branch2)?;
+                return self.execute(branch2);
             }
-            Ok(())
+            Ok(None)
         }
     }
     fn is_truthy(&self, value: LiteralValue) -> bool {
@@ -176,16 +175,17 @@ impl Interpreter {
         }
     }
 
-    pub fn visit_print_stmt(&mut self, expr: &Expr) {
+    pub fn visit_print_stmt(&mut self, expr: &Expr) -> StmtResult {
         match self.evaluate(&expr) {
             Ok(value) => println!("{}", self.stringify(value)),
             Err(_) => {
                 self.has_error = true;
             }
         }
+        Ok(None)
     }
 
-    pub fn visit_var_stmt(&mut self, name: &Token, init: &Option<Expr>) {
+    pub fn visit_var_stmt(&mut self, name: &Token, init: &Option<Expr>) -> StmtResult {
         match init {
             Some(expr) => match self.evaluate(&expr) {
                 Ok(val) => {
@@ -203,17 +203,29 @@ impl Interpreter {
                     .define(name.lexeme.clone(), None);
             }
         }
+        return Ok(None);
     }
-    pub fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> InterpreterResult<()> {
+    pub fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> StmtResult {
         loop {
             let value = self.evaluate(condition)?;
             if self.is_truthy(value) {
-                self.execute(body)?;
+                if let Some(flow) = self.execute(body)? {
+                    match flow {
+                        ControlFlow::Return(literal_value) => {
+                            return Ok(Some(ControlFlow::Return(literal_value)));
+                        }
+                        ControlFlow::Break => return Ok(None),
+                        ControlFlow::Continue => return Ok(None),
+                    }
+                }
             } else {
                 break;
             }
         }
-        Ok(())
+        Ok(None)
+    }
+    pub fn visit_break_stmt(&self) -> StmtResult {
+        return Ok(Some(ControlFlow::Break));
     }
     pub fn visit_assign_expr(&mut self, exper: &AssessmentExpr) -> InterpreterResult<LiteralValue> {
         let value = self.evaluate(&exper.value)?;
@@ -265,42 +277,38 @@ impl Interpreter {
             Err(_) => self.has_error = true,
         });
     }
-    pub fn execute(&mut self, statement: &Stmt) -> InterpreterResult<()> {
+    pub fn execute(&mut self, statement: &Stmt) -> StmtResult {
         match &statement.expresstion {
-            StmtExpr::Print(expr) => self.visit_print_stmt(expr),
-            StmtExpr::Expresstion(expr) => self.visit_expresstion_stmt(expr)?,
-            StmtExpr::Var(name, init) => self.visit_var_stmt(name, init),
-            StmtExpr::Block(statements) => self.visit_block_stmt(statements)?,
+            StmtExpr::Print(expr) => return self.visit_print_stmt(expr),
+            StmtExpr::Expresstion(expr) => return self.visit_expresstion_stmt(expr),
+            StmtExpr::Var(name, init) => return self.visit_var_stmt(name, init),
+            StmtExpr::Block(statements) => return self.visit_block_stmt(statements),
             StmtExpr::If(condition, then_branch, else_branch) => {
                 return self.visit_if_stmt(condition, then_branch, else_branch.as_deref());
             }
             StmtExpr::While(expr, stmt) => return self.visit_while_stmt(&expr, &stmt),
+            StmtExpr::Break => return self.visit_break_stmt(),
         }
-
-        Ok(())
     }
-    pub fn visit_block_stmt(&mut self, statements: &Vec<Stmt>) -> InterpreterResult<()> {
-        self.exeucute_block(
+    pub fn visit_block_stmt(&mut self, statements: &Vec<Stmt>) -> StmtResult {
+        return self.exeucute_block(
             statements,
             Rc::new(RefCell::new(Environment::new(Some(
                 self.environment.clone(),
             )))),
-        )?;
-        Ok(())
+        );
     }
-    pub fn exeucute_block(
-        &mut self,
-        statements: &Vec<Stmt>,
-        environment: Env,
-    ) -> InterpreterResult<()> {
+    pub fn exeucute_block(&mut self, statements: &Vec<Stmt>, environment: Env) -> StmtResult {
         let previous = self.environment.clone();
         self.environment = environment;
 
         let result = (|| {
             for stmt in statements {
-                self.execute(stmt)?;
+                if let Some(flow) = self.execute(stmt)? {
+                    return Ok(Some(flow));
+                }
             }
-            Ok(())
+            Ok(None)
         })();
 
         self.environment = previous;
