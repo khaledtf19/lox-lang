@@ -1,4 +1,8 @@
-use crate::{ast::expr::Expr, token::Token};
+use crate::{
+    ast::expr::{Expr, LiteralValue},
+    error::RunTimeError,
+    token::Token,
+};
 
 #[derive(Debug, Clone)]
 pub struct Stmt {
@@ -13,6 +17,7 @@ pub enum StmtExpr {
     Block(Vec<Stmt>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     While(Expr, Box<Stmt>),
+    Break,
 }
 
 impl Stmt {
@@ -55,4 +60,18 @@ impl Stmt {
             expresstion: StmtExpr::While(condition, Box::new(body)),
         }
     }
+    pub fn break_stmt() -> Self {
+        Self {
+            expresstion: StmtExpr::Break,
+        }
+    }
 }
+
+#[derive(Debug)]
+pub enum ControlFlow {
+    Return(LiteralValue),
+    Break,
+    Continue,
+}
+
+pub type StmtResult = std::result::Result<Option<ControlFlow>, RunTimeError>;

@@ -91,9 +91,12 @@ impl Parser {
         if self.match_token_types(vec![TokenType::LEFTBRACE]) {
             return Ok(Stmt::block_stmt(self.block()));
         }
-
-        let r = self.expression_statment();
-        return r;
+        if self.match_token_types(vec![TokenType::BREAK]) {
+            println!("{:?} , {:?}", self.previous(), self.peek());
+            self.consume(TokenType::SEMICOLON, "Expect ; after break".to_string());
+            return Ok(Stmt::break_stmt());
+        }
+        return self.expression_statment();
     }
     fn for_statement(&mut self) -> ParserResult<Stmt> {
         self.consume(TokenType::LEFTPAREN, "Expect '(' after 'for'.".to_string())?;
@@ -363,6 +366,7 @@ impl Parser {
         if self.match_token_types(vec![TokenType::EOF]) {}
 
         self.has_error = true;
+
         Err(ParserError::new(
             self.peek().clone(),
             "Expect expression.".to_string(),
