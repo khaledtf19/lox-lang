@@ -18,6 +18,21 @@ pub enum StmtExpr {
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     While(Expr, Box<Stmt>),
     Break,
+    Function(FunctionStmt),
+    Return(ReturnStmt),
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionStmt {
+    pub name: Token,
+    pub params: Vec<Token>,
+    pub body: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReturnStmt {
+    pub keyword: Token,
+    pub value: Option<Expr>,
 }
 
 impl Stmt {
@@ -63,6 +78,18 @@ impl Stmt {
     pub fn break_stmt() -> Self {
         Self {
             expresstion: StmtExpr::Break,
+        }
+    }
+
+    pub fn function_stmt(name: Token, params: Vec<Token>, body: Vec<Stmt>) -> Self {
+        Self {
+            expresstion: StmtExpr::Function(FunctionStmt { name, params, body }),
+        }
+    }
+
+    pub fn return_stmt(keyword: Token, value: Option<Expr>) -> Self {
+        Self {
+            expresstion: StmtExpr::Return(ReturnStmt { keyword, value }),
         }
     }
 }
