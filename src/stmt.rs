@@ -96,7 +96,7 @@ impl Stmt {
 
 #[derive(Debug)]
 pub enum ControlFlow {
-    Return(LiteralValue),
+    Return(Option<LiteralValue>),
     Break,
     Continue,
 }

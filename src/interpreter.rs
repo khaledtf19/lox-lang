@@ -13,7 +13,7 @@ use crate::{
     error::RunTimeError,
     lox_callable::{Callable, LoxCallable, NativeFunction},
     lox_function::LoxFunction,
-    stmt::{ControlFlow, FunctionStmt, Stmt, StmtExpr, StmtResult},
+    stmt::{ControlFlow, FunctionStmt, ReturnStmt, Stmt, StmtExpr, StmtResult},
     token::{Token, TokenType},
 };
 
@@ -211,6 +211,7 @@ impl Interpreter {
     pub fn visit_function_stmt(&mut self, stmt: &FunctionStmt) -> StmtResult {
         let function = LiteralValue::Callable(Callable::Function(Rc::new(LoxFunction::new(
             Rc::new(stmt.clone()),
+            Rc::clone(&self.environment),
         ))));
         self.environment
             .borrow_mut()
@@ -251,6 +252,14 @@ impl Interpreter {
             }
         }
         Ok(None)
+    }
+
+    pub fn visit_retunr_stmt(&mut self, stmt: &ReturnStmt) -> StmtResult {
+        let mut value: Option<LiteralValue> = None;
+        if let Some(expr) = &stmt.value {
+            value = Some(self.evaluate(&expr)?);
+        }
+        Ok(Some(ControlFlow::Return(value)))
     }
 
     pub fn visit_var_stmt(&mut self, name: &Token, init: &Option<Expr>) -> StmtResult {
@@ -359,6 +368,7 @@ impl Interpreter {
             StmtExpr::While(expr, stmt) => return self.visit_while_stmt(&expr, &stmt),
             StmtExpr::Break => return self.visit_break_stmt(),
             StmtExpr::Function(function_stmt) => return self.visit_function_stmt(function_stmt),
+            StmtExpr::Return(return_stmt) => self.visit_retunr_stmt(return_stmt),
         }
     }
     pub fn visit_block_stmt(&mut self, statements: &Vec<Stmt>) -> StmtResult {
