@@ -5,15 +5,17 @@ use std::env::{self};
 
 use lox::Lox;
 
+mod Environment;
 mod ast;
 mod error;
 mod interpreter;
 mod lox;
+mod lox_callable;
+mod lox_function;
 mod parser;
 mod scanner;
-mod token;
 mod stmt;
-mod Environment;
+mod token;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -32,7 +34,8 @@ fn main() {
         println!("Usage: rlox [script]");
         return;
     } else if args.len() == 2 {
-        lox.run_file(&args[1]).expect("Someting went wrong while reading");
+        lox.run_file(&args[1])
+            .expect("Someting went wrong while reading");
         return;
     } else {
         lox.run_prompt();

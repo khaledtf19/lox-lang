@@ -1,29 +1,51 @@
-use std::{any::Any, cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use crate::{
     Environment::{Env, Environment},
     ast::expr::{
-        AssessmentExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue, LogicalExpr,
-        UnaryExpr, VariableExpr,
+        AssessmentExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue,
+        LogicalExpr, UnaryExpr, VariableExpr,
     },
     error::RunTimeError,
-    stmt::{Stmt, StmtExpr},
+    lox_callable::{Callable, LoxCallable, NativeFunction},
+    lox_function::LoxFunction,
+    stmt::{ControlFlow, FunctionStmt, ReturnStmt, Stmt, StmtExpr, StmtResult},
     token::{Token, TokenType},
 };
 
 #[derive(Debug)]
 pub struct Interpreter {
     pub has_error: bool,
-    environment: Env,
+    pub globals: Env,
+    pub environment: Env,
 }
 
 type InterpreterResult<T> = std::result::Result<T, RunTimeError>;
 
 impl Interpreter {
     pub fn new() -> Self {
+        let globals = Rc::new(RefCell::new(Environment::new(None)));
+        globals.borrow_mut().define(
+            "clock".to_string(),
+            Some(LiteralValue::Callable(Callable::Function(Rc::new(
+                NativeFunction::new(
+                    |_, _| {
+                        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+                        return Ok(LiteralValue::Number(timestamp.as_millis() as f64));
+                    },
+                    0,
+                ),
+            )))),
+        );
+
         Self {
             has_error: false,
-            environment: Rc::new(RefCell::new(Environment::new(None))),
+            globals: Rc::clone(&globals),
+            environment: Rc::clone(&globals),
         }
     }
     pub fn visit_litearal_expr(&self, expr: &LiteralExpr) -> Result<LiteralValue, RunTimeError> {
@@ -143,29 +165,74 @@ impl Interpreter {
         }
     }
 
+    pub fn visist_call_expr(&mut self, expr: &CallExpr) -> InterpreterResult<LiteralValue> {
+        let callee = self.evaluate(&expr.callee)?;
+
+        let mut arguments = vec![];
+
+        for argument in expr.arguments.iter() {
+            arguments.push(self.evaluate(argument)?);
+        }
+
+        match callee {
+            LiteralValue::Callable(callable) => match callable {
+                Callable::Function(function) => {
+                    if arguments.len() != function.arity() {
+                        return Err(RunTimeError::new(
+                            expr.paren.clone(),
+                            "Expected ".to_string()
+                                + &function.arity().to_string()
+                                + " arguments but got "
+                                + &arguments.len().to_string()
+                                + ".",
+                        ));
+                    }
+                    return function.call(self, &arguments);
+                }
+            },
+            _ => {
+                return Err(RunTimeError::new(
+                    expr.paren.clone(),
+                    "Can only call functions and classes.".to_string(),
+                ));
+            }
+        }
+    }
+
     pub fn visit_variable_expr(&self, expr: &VariableExpr) -> Result<LiteralValue, RunTimeError> {
         return self.environment.borrow().get(expr.name.clone());
     }
 
-    pub fn visit_expresstion_stmt(&mut self, expr: &Expr) -> InterpreterResult<()> {
+    pub fn visit_expresstion_stmt(&mut self, expr: &Expr) -> StmtResult {
         self.evaluate(&expr)?;
-        Ok(())
+        return Ok(None);
     }
+
+    pub fn visit_function_stmt(&mut self, stmt: &FunctionStmt) -> StmtResult {
+        let function = LiteralValue::Callable(Callable::Function(Rc::new(LoxFunction::new(
+            Rc::new(stmt.clone()),
+            Rc::clone(&self.environment),
+        ))));
+        self.environment
+            .borrow_mut()
+            .define(stmt.name.lexeme.clone(), Some(function));
+        Ok(None)
+    }
+
     pub fn visit_if_stmt(
         &mut self,
         condition: &Expr,
         then_branch: &Stmt,
         else_branch: Option<&Stmt>,
-    ) -> InterpreterResult<()> {
+    ) -> StmtResult {
         let is_true = self.evaluate(condition)?;
         if self.is_truthy(is_true) {
-            self.execute(then_branch)?;
-            Ok(())
+            return self.execute(then_branch);
         } else {
             if let Some(branch2) = else_branch {
-                self.execute(branch2)?;
+                return self.execute(branch2);
             }
-            Ok(())
+            Ok(None)
         }
     }
     fn is_truthy(&self, value: LiteralValue) -> bool {
@@ -173,19 +240,29 @@ impl Interpreter {
             LiteralValue::String(_) | LiteralValue::Number(_) => return true,
             LiteralValue::Boolean(bol) => return bol,
             LiteralValue::Nil => return false,
+            LiteralValue::Callable(callable) => todo!(),
         }
     }
 
-    pub fn visit_print_stmt(&mut self, expr: &Expr) {
+    pub fn visit_print_stmt(&mut self, expr: &Expr) -> StmtResult {
         match self.evaluate(&expr) {
             Ok(value) => println!("{}", self.stringify(value)),
             Err(_) => {
                 self.has_error = true;
             }
         }
+        Ok(None)
     }
 
-    pub fn visit_var_stmt(&mut self, name: &Token, init: &Option<Expr>) {
+    pub fn visit_retunr_stmt(&mut self, stmt: &ReturnStmt) -> StmtResult {
+        let mut value: Option<LiteralValue> = None;
+        if let Some(expr) = &stmt.value {
+            value = Some(self.evaluate(&expr)?);
+        }
+        Ok(Some(ControlFlow::Return(value)))
+    }
+
+    pub fn visit_var_stmt(&mut self, name: &Token, init: &Option<Expr>) -> StmtResult {
         match init {
             Some(expr) => match self.evaluate(&expr) {
                 Ok(val) => {
@@ -203,17 +280,29 @@ impl Interpreter {
                     .define(name.lexeme.clone(), None);
             }
         }
+        return Ok(None);
     }
-    pub fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> InterpreterResult<()> {
+    pub fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> StmtResult {
         loop {
             let value = self.evaluate(condition)?;
             if self.is_truthy(value) {
-                self.execute(body)?;
+                if let Some(flow) = self.execute(body)? {
+                    match flow {
+                        ControlFlow::Return(literal_value) => {
+                            return Ok(Some(ControlFlow::Return(literal_value)));
+                        }
+                        ControlFlow::Break => return Ok(None),
+                        ControlFlow::Continue => return Ok(None),
+                    }
+                }
             } else {
                 break;
             }
         }
-        Ok(())
+        Ok(None)
+    }
+    pub fn visit_break_stmt(&self) -> StmtResult {
+        return Ok(Some(ControlFlow::Break));
     }
     pub fn visit_assign_expr(&mut self, exper: &AssessmentExpr) -> InterpreterResult<LiteralValue> {
         let value = self.evaluate(&exper.value)?;
@@ -243,6 +332,7 @@ impl Interpreter {
             Expr::Variable(var_expr) => self.visit_variable_expr(var_expr),
             Expr::Assgin(assessment_expr) => self.visit_assign_expr(assessment_expr),
             Expr::Logical(logical_expr) => self.visit_logical_exper(logical_expr),
+            Expr::Call(call_expr) => self.visist_call_expr(call_expr),
         }
     }
     fn stringify(&self, value: LiteralValue) -> String {
@@ -257,6 +347,7 @@ impl Interpreter {
             }
             LiteralValue::Boolean(bol) => bol.to_string(),
             LiteralValue::Nil => "Nil".to_string(),
+            LiteralValue::Callable(callable) => todo!(),
         }
     }
     pub fn interpret(&mut self, statements: Vec<Stmt>) {
@@ -265,42 +356,40 @@ impl Interpreter {
             Err(_) => self.has_error = true,
         });
     }
-    pub fn execute(&mut self, statement: &Stmt) -> InterpreterResult<()> {
+    pub fn execute(&mut self, statement: &Stmt) -> StmtResult {
         match &statement.expresstion {
-            StmtExpr::Print(expr) => self.visit_print_stmt(expr),
-            StmtExpr::Expresstion(expr) => self.visit_expresstion_stmt(expr)?,
-            StmtExpr::Var(name, init) => self.visit_var_stmt(name, init),
-            StmtExpr::Block(statements) => self.visit_block_stmt(statements)?,
+            StmtExpr::Print(expr) => return self.visit_print_stmt(expr),
+            StmtExpr::Expresstion(expr) => return self.visit_expresstion_stmt(expr),
+            StmtExpr::Var(name, init) => return self.visit_var_stmt(name, init),
+            StmtExpr::Block(statements) => return self.visit_block_stmt(statements),
             StmtExpr::If(condition, then_branch, else_branch) => {
                 return self.visit_if_stmt(condition, then_branch, else_branch.as_deref());
             }
             StmtExpr::While(expr, stmt) => return self.visit_while_stmt(&expr, &stmt),
+            StmtExpr::Break => return self.visit_break_stmt(),
+            StmtExpr::Function(function_stmt) => return self.visit_function_stmt(function_stmt),
+            StmtExpr::Return(return_stmt) => self.visit_retunr_stmt(return_stmt),
         }
-
-        Ok(())
     }
-    pub fn visit_block_stmt(&mut self, statements: &Vec<Stmt>) -> InterpreterResult<()> {
-        self.exeucute_block(
+    pub fn visit_block_stmt(&mut self, statements: &Vec<Stmt>) -> StmtResult {
+        return self.exeucute_block(
             statements,
             Rc::new(RefCell::new(Environment::new(Some(
                 self.environment.clone(),
             )))),
-        )?;
-        Ok(())
+        );
     }
-    pub fn exeucute_block(
-        &mut self,
-        statements: &Vec<Stmt>,
-        environment: Env,
-    ) -> InterpreterResult<()> {
+    pub fn exeucute_block(&mut self, statements: &Vec<Stmt>, environment: Env) -> StmtResult {
         let previous = self.environment.clone();
         self.environment = environment;
 
         let result = (|| {
             for stmt in statements {
-                self.execute(stmt)?;
+                if let Some(flow) = self.execute(stmt)? {
+                    return Ok(Some(flow));
+                }
             }
-            Ok(())
+            Ok(None)
         })();
 
         self.environment = previous;

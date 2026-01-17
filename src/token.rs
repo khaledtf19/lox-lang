@@ -56,6 +56,7 @@ pub enum TokenType {
     TRUE,
     VAR,
     WHILE,
+    BREAK,
 
     EOF,
 }
@@ -78,6 +79,7 @@ static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "true"   => TokenType::TRUE,
     "var"    => TokenType::VAR,
     "while"  => TokenType::WHILE,
+    "break" => TokenType::BREAK
 };
 pub fn parse_keyword(keyword: &str) -> Option<TokenType> {
     KEYWORDS.get(keyword).cloned()

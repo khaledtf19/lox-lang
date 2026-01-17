@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::token::Token;
+use crate::{lox_callable::Callable, token::Token};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -13,6 +13,7 @@ pub enum Expr {
     Variable(VariableExpr),
     Assgin(AssessmentExpr),
     Logical(LogicalExpr),
+    Call(CallExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -51,10 +52,18 @@ pub enum LiteralValue {
     Number(f64),
     Boolean(bool),
     Nil,
+    Callable(Callable),
 }
 #[derive(Debug, Clone)]
 pub struct LiteralExpr {
     pub value: LiteralValue,
+}
+
+#[derive(Debug, Clone)]
+pub struct CallExpr {
+    pub callee: Box<Expr>,
+    pub paren: Token,
+    pub arguments: Vec<Expr>,
 }
 
 impl Display for LiteralValue {
@@ -64,6 +73,7 @@ impl Display for LiteralValue {
             LiteralValue::String(v) => write!(f, "\"{}\"", v),
             LiteralValue::Boolean(v) => write!(f, "{}", v),
             LiteralValue::Nil => write!(f, "Nil"),
+            LiteralValue::Callable(callable) => todo!(),
         }
     }
 }
@@ -103,6 +113,7 @@ impl Display for Expr {
             Expr::Variable(expr) => write!(f, "(Variable {})", expr.name),
             Expr::Assgin(assessment_expr) => todo!(),
             Expr::Logical(logical_expr) => todo!(),
+            Expr::Call(call_expr) => todo!(),
         }
     }
 }
@@ -161,6 +172,14 @@ impl Expr {
         Expr::Assgin(AssessmentExpr {
             name,
             value: Box::new(value),
+        })
+    }
+
+    pub fn call(callee: Expr, paren: Token, arguments: Vec<Expr>) -> Self {
+        Expr::Call(CallExpr {
+            callee: Box::new(callee),
+            paren,
+            arguments,
         })
     }
 }
