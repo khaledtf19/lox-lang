@@ -13,6 +13,7 @@ mod lox;
 mod lox_callable;
 mod lox_function;
 mod parser;
+mod resolver;
 mod scanner;
 mod stmt;
 mod token;
@@ -20,14 +21,6 @@ mod token;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    // let expression = Expr::binary(
-    //     Expr::unary(
-    //         Token::new(TokenType::MINUS, "-".to_string(), None, 1),
-    //         Expr::literal(LiteralValue::Number(123.0)),
-    //     ),
-    //     Token::new(TokenType::STAR, "*".to_string(), None, 1),
-    //     Expr::grouping(Expr::literal(LiteralValue::Number(45.67))),
-    // );
     let mut lox = Lox::new();
 
     if args.len() <= 1 {
@@ -38,6 +31,6 @@ fn main() {
             .expect("Someting went wrong while reading");
         return;
     } else {
-        lox.run_prompt();
+        let _ = lox.run_prompt();
     }
 }

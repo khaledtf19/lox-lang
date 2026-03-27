@@ -1,25 +1,31 @@
 use std::{
     cell::RefCell,
+    collections::HashMap,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
+    usize,
 };
 
 use crate::{
     Environment::{Env, Environment},
     ast::expr::{
-        AssessmentExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LiteralValue,
+        AssginExpr, BinaryExpr, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, LiteralValue,
         LogicalExpr, UnaryExpr, VariableExpr,
     },
     error::RunTimeError,
-    lox_callable::{Callable, LoxCallable, NativeFunction},
+    lox_callable::{Callable, NativeFunction},
     lox_function::LoxFunction,
-    stmt::{ControlFlow, FunctionStmt, ReturnStmt, Stmt, StmtExpr, StmtResult},
+    stmt::{
+        BlockStmt, ControlFlow, ExpresstionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt,
+        StmtExpr, StmtResult, VarStmt, WhileStmt,
+    },
     token::{Token, TokenType},
 };
 
 #[derive(Debug)]
 pub struct Interpreter {
-    pub has_error: bool,
+    pub had_error: bool,
+    pub locals: HashMap<usize, usize>,
     pub globals: Env,
     pub environment: Env,
 }
@@ -43,7 +49,8 @@ impl Interpreter {
         );
 
         Self {
-            has_error: false,
+            had_error: false,
+            locals: HashMap::new(),
             globals: Rc::clone(&globals),
             environment: Rc::clone(&globals),
         }
@@ -199,12 +206,35 @@ impl Interpreter {
         }
     }
 
-    pub fn visit_variable_expr(&self, expr: &VariableExpr) -> Result<LiteralValue, RunTimeError> {
-        return self.environment.borrow().get(expr.name.clone());
+    pub fn visit_variable_expr(
+        &mut self,
+        id: usize,
+        expr: &VariableExpr,
+    ) -> Result<LiteralValue, RunTimeError> {
+        if let Some(value) = self.look_up_variable(id, &expr.name)? {
+            return Ok(value);
+        } else {
+            Err(RunTimeError {
+                token: expr.name.clone(),
+                message: "".to_string(),
+            })
+        }
+    }
+    pub fn look_up_variable(
+        &mut self,
+        id: usize,
+        name: &Token,
+    ) -> Result<Option<LiteralValue>, RunTimeError> {
+        let distance = self.locals.get(&id);
+        if let Some(num) = distance {
+            return Ok(self.get_at(num.clone(), &name.lexeme));
+        } else {
+            Ok(Some(self.globals.borrow().get(name.clone())?))
+        }
     }
 
-    pub fn visit_expresstion_stmt(&mut self, expr: &Expr) -> StmtResult {
-        self.evaluate(&expr)?;
+    pub fn visit_expresstion_stmt(&mut self, stmt: &ExpresstionStmt) -> StmtResult {
+        self.evaluate(&stmt.expresstion)?;
         return Ok(None);
     }
 
@@ -219,17 +249,12 @@ impl Interpreter {
         Ok(None)
     }
 
-    pub fn visit_if_stmt(
-        &mut self,
-        condition: &Expr,
-        then_branch: &Stmt,
-        else_branch: Option<&Stmt>,
-    ) -> StmtResult {
-        let is_true = self.evaluate(condition)?;
+    pub fn visit_if_stmt(&mut self, stmt: &IfStmt) -> StmtResult {
+        let is_true = self.evaluate(&stmt.condition)?;
         if self.is_truthy(is_true) {
-            return self.execute(then_branch);
+            return self.execute(&stmt.then_branch);
         } else {
-            if let Some(branch2) = else_branch {
+            if let Some(branch2) = &stmt.else_branch {
                 return self.execute(branch2);
             }
             Ok(None)
@@ -240,15 +265,15 @@ impl Interpreter {
             LiteralValue::String(_) | LiteralValue::Number(_) => return true,
             LiteralValue::Boolean(bol) => return bol,
             LiteralValue::Nil => return false,
-            LiteralValue::Callable(callable) => todo!(),
+            LiteralValue::Callable(_) => todo!(),
         }
     }
 
-    pub fn visit_print_stmt(&mut self, expr: &Expr) -> StmtResult {
-        match self.evaluate(&expr) {
+    pub fn visit_print_stmt(&mut self, stmt: &PrintStmt) -> StmtResult {
+        match self.evaluate(&stmt.expr) {
             Ok(value) => println!("{}", self.stringify(value)),
             Err(_) => {
-                self.has_error = true;
+                self.had_error = true;
             }
         }
         Ok(None)
@@ -262,31 +287,31 @@ impl Interpreter {
         Ok(Some(ControlFlow::Return(value)))
     }
 
-    pub fn visit_var_stmt(&mut self, name: &Token, init: &Option<Expr>) -> StmtResult {
-        match init {
-            Some(expr) => match self.evaluate(&expr) {
+    pub fn visit_var_stmt(&mut self, stmt: &VarStmt) -> StmtResult {
+        match &stmt.initializer {
+            Some(expr) => match self.evaluate(expr) {
                 Ok(val) => {
                     self.environment
                         .borrow_mut()
-                        .define(name.lexeme.clone(), Some(val));
+                        .define(stmt.name.lexeme.clone(), Some(val));
                 }
                 Err(_) => {
-                    self.has_error = true;
+                    self.had_error = true;
                 }
             },
             None => {
                 self.environment
                     .borrow_mut()
-                    .define(name.lexeme.clone(), None);
+                    .define(stmt.name.lexeme.clone(), None);
             }
         }
         return Ok(None);
     }
-    pub fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> StmtResult {
+    pub fn visit_while_stmt(&mut self, stmt: &WhileStmt) -> StmtResult {
         loop {
-            let value = self.evaluate(condition)?;
+            let value = self.evaluate(&stmt.condition)?;
             if self.is_truthy(value) {
-                if let Some(flow) = self.execute(body)? {
+                if let Some(flow) = self.execute(&stmt.body)? {
                     match flow {
                         ControlFlow::Return(literal_value) => {
                             return Ok(Some(ControlFlow::Return(literal_value)));
@@ -304,12 +329,21 @@ impl Interpreter {
     pub fn visit_break_stmt(&self) -> StmtResult {
         return Ok(Some(ControlFlow::Break));
     }
-    pub fn visit_assign_expr(&mut self, exper: &AssessmentExpr) -> InterpreterResult<LiteralValue> {
-        let value = self.evaluate(&exper.value)?;
-        self.environment
-            .borrow_mut()
-            .assign(exper.name.clone(), value.clone())?;
-        Ok(value.clone())
+    pub fn visit_assign_expr(
+        &mut self,
+        id: usize,
+        expr: &AssginExpr,
+    ) -> InterpreterResult<LiteralValue> {
+        let value = self.evaluate(&expr.value)?;
+
+        if let Some(distance) = self.locals.get(&id) {
+            self.assign_at(distance.clone(), &expr.name, value.clone());
+        } else {
+            self.globals
+                .borrow_mut()
+                .assign(&expr.name, value.clone())?;
+        }
+        Ok(value)
     }
 
     fn is_equal(&self, l: LiteralValue, r: LiteralValue) -> bool {
@@ -321,59 +355,59 @@ impl Interpreter {
             _ => false,
         }
     }
-    fn evaluate(&mut self, expr: &Expr) -> Result<LiteralValue, RunTimeError> {
-        match expr {
-            Expr::Binary(binary_expr) => self.visit_binary_expr(binary_expr),
-            Expr::Grouping(grouping_expr) => self.visit_grouping_expr(grouping_expr),
-            Expr::Literal(literal_expr) => self.visit_litearal_expr(literal_expr),
-            Expr::Unary(unary_expr) => self.visit_unary_expr(unary_expr),
-            Expr::Separator(_) => todo!(),
-            Expr::Ternary(_) => todo!(),
-            Expr::Variable(var_expr) => self.visit_variable_expr(var_expr),
-            Expr::Assgin(assessment_expr) => self.visit_assign_expr(assessment_expr),
-            Expr::Logical(logical_expr) => self.visit_logical_exper(logical_expr),
-            Expr::Call(call_expr) => self.visist_call_expr(call_expr),
+    pub fn evaluate(&mut self, expr: &Expr) -> Result<LiteralValue, RunTimeError> {
+        match &expr.kind {
+            ExprKind::Binary(binary_expr) => self.visit_binary_expr(binary_expr),
+            ExprKind::Grouping(grouping_expr) => self.visit_grouping_expr(grouping_expr),
+            ExprKind::Literal(literal_expr) => self.visit_litearal_expr(literal_expr),
+            ExprKind::Unary(unary_expr) => self.visit_unary_expr(unary_expr),
+            ExprKind::Separator(_) => todo!(),
+            ExprKind::Ternary(_) => todo!(),
+            ExprKind::Variable(var_expr) => self.visit_variable_expr(expr.id, var_expr),
+            ExprKind::Assgin(assessment_expr) => self.visit_assign_expr(expr.id, assessment_expr),
+            ExprKind::Logical(logical_expr) => self.visit_logical_exper(logical_expr),
+            ExprKind::Call(call_expr) => self.visist_call_expr(call_expr),
         }
     }
     fn stringify(&self, value: LiteralValue) -> String {
         match value {
             LiteralValue::String(str) => str,
             LiteralValue::Number(num) => {
-                let numStr = num.to_string();
-                if numStr.ends_with(".0") {
-                    return numStr.split_at(numStr.len() - 2).0.to_string();
+                let num_str = num.to_string();
+                if num_str.ends_with(".0") {
+                    return num_str.split_at(num_str.len() - 2).0.to_string();
                 }
-                numStr
+                num_str
             }
             LiteralValue::Boolean(bol) => bol.to_string(),
             LiteralValue::Nil => "Nil".to_string(),
-            LiteralValue::Callable(callable) => todo!(),
+            LiteralValue::Callable(_) => todo!(),
         }
     }
     pub fn interpret(&mut self, statements: Vec<Stmt>) {
         statements.iter().for_each(|stmt| match self.execute(stmt) {
             Ok(_) => {}
-            Err(_) => self.has_error = true,
+            Err(_) => self.had_error = true,
         });
     }
     pub fn execute(&mut self, statement: &Stmt) -> StmtResult {
         match &statement.expresstion {
-            StmtExpr::Print(expr) => return self.visit_print_stmt(expr),
-            StmtExpr::Expresstion(expr) => return self.visit_expresstion_stmt(expr),
-            StmtExpr::Var(name, init) => return self.visit_var_stmt(name, init),
-            StmtExpr::Block(statements) => return self.visit_block_stmt(statements),
-            StmtExpr::If(condition, then_branch, else_branch) => {
-                return self.visit_if_stmt(condition, then_branch, else_branch.as_deref());
+            StmtExpr::Print(stmt) => return self.visit_print_stmt(stmt),
+            StmtExpr::Expresstion(stmt) => return self.visit_expresstion_stmt(stmt),
+            StmtExpr::Var(stmt) => return self.visit_var_stmt(stmt),
+            StmtExpr::Block(block) => return self.visit_block_stmt(block),
+            StmtExpr::If(stmt) => {
+                return self.visit_if_stmt(stmt);
             }
-            StmtExpr::While(expr, stmt) => return self.visit_while_stmt(&expr, &stmt),
+            StmtExpr::While(stmt) => return self.visit_while_stmt(&stmt),
             StmtExpr::Break => return self.visit_break_stmt(),
             StmtExpr::Function(function_stmt) => return self.visit_function_stmt(function_stmt),
             StmtExpr::Return(return_stmt) => self.visit_retunr_stmt(return_stmt),
         }
     }
-    pub fn visit_block_stmt(&mut self, statements: &Vec<Stmt>) -> StmtResult {
+    pub fn visit_block_stmt(&mut self, block: &BlockStmt) -> StmtResult {
         return self.exeucute_block(
-            statements,
+            &block.statements,
             Rc::new(RefCell::new(Environment::new(Some(
                 self.environment.clone(),
             )))),
@@ -395,4 +429,26 @@ impl Interpreter {
         self.environment = previous;
         result
     }
+    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
+        self.locals.insert(expr.id, depth);
+    }
+
+    pub fn get_at(&self, distance: usize, name: &str) -> Option<LiteralValue> {
+        ancestor(self.environment.clone(), distance)
+            .and_then(|env| env.borrow().values.get(name).cloned())
+    }
+    pub fn assign_at(&mut self, distance: usize, name: &Token, value: LiteralValue) {
+        if let Some(env) = ancestor(self.environment.clone(), distance) {
+            env.borrow_mut().values.insert(name.lexeme.clone(), value);
+        }
+    }
+}
+
+pub fn ancestor(env: Env, distance: usize) -> Option<Env> {
+    let mut current = env;
+    for _ in 0..distance {
+        let next = current.borrow().enclosing.clone()?;
+        current = next;
+    }
+    Some(current)
 }

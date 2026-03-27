@@ -11,15 +11,49 @@ pub struct Stmt {
 
 #[derive(Debug, Clone)]
 pub enum StmtExpr {
-    Print(Expr),
-    Expresstion(Expr),
-    Var(Token, Option<Expr>),
-    Block(Vec<Stmt>),
-    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
-    While(Expr, Box<Stmt>),
+    Print(PrintStmt),
+    Expresstion(ExpresstionStmt),
+    Var(VarStmt),
+    Block(BlockStmt),
+    If(IfStmt),
+    While(WhileStmt),
     Break,
     Function(FunctionStmt),
     Return(ReturnStmt),
+}
+
+#[derive(Debug, Clone)]
+pub struct WhileStmt {
+    pub condition: Expr,
+    pub body: Box<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrintStmt {
+    pub expr: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct IfStmt {
+    pub condition: Expr,
+    pub then_branch: Box<Stmt>,
+    pub else_branch: Option<Box<Stmt>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExpresstionStmt {
+    pub expresstion: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct VarStmt {
+    pub name: Token,
+    pub initializer: Option<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BlockStmt {
+    pub statements: Vec<Stmt>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,25 +72,25 @@ pub struct ReturnStmt {
 impl Stmt {
     pub fn print_stmt(value: Expr) -> Self {
         Self {
-            expresstion: StmtExpr::Print(value),
+            expresstion: StmtExpr::Print(PrintStmt { expr: value }),
         }
     }
 
     pub fn expresstion_stmt(value: Expr) -> Self {
         Self {
-            expresstion: StmtExpr::Expresstion(value),
+            expresstion: StmtExpr::Expresstion(ExpresstionStmt { expresstion: value }),
         }
     }
 
     pub fn var_stmt(name: Token, initializer: Option<Expr>) -> Self {
         Self {
-            expresstion: StmtExpr::Var(name, initializer),
+            expresstion: StmtExpr::Var(VarStmt { name, initializer }),
         }
     }
 
     pub fn block_stmt(statements: Vec<Stmt>) -> Self {
         Self {
-            expresstion: StmtExpr::Block(statements),
+            expresstion: StmtExpr::Block(BlockStmt { statements }),
         }
     }
 
@@ -66,13 +100,20 @@ impl Stmt {
         else_branch: Option<Box<Stmt>>,
     ) -> Self {
         Self {
-            expresstion: StmtExpr::If(condition, then_branch, else_branch),
+            expresstion: StmtExpr::If(IfStmt {
+                condition,
+                then_branch,
+                else_branch,
+            }),
         }
     }
 
     pub fn while_stmt(condition: Expr, body: Stmt) -> Self {
         Self {
-            expresstion: StmtExpr::While(condition, Box::new(body)),
+            expresstion: StmtExpr::While(WhileStmt {
+                condition,
+                body: Box::new(body),
+            }),
         }
     }
     pub fn break_stmt() -> Self {

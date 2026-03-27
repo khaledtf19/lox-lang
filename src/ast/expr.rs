@@ -3,7 +3,13 @@ use std::fmt::Display;
 use crate::{lox_callable::Callable, token::Token};
 
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub struct Expr {
+    pub id: usize,
+    pub kind: ExprKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprKind {
     Binary(BinaryExpr),
     Unary(UnaryExpr),
     Ternary(TernaryExpr),
@@ -11,7 +17,7 @@ pub enum Expr {
     Separator(SeparatorExpr),
     Grouping(GroupingExpr),
     Variable(VariableExpr),
-    Assgin(AssessmentExpr),
+    Assgin(AssginExpr),
     Logical(LogicalExpr),
     Call(CallExpr),
 }
@@ -41,7 +47,7 @@ pub struct VariableExpr {
 }
 
 #[derive(Debug, Clone)]
-pub struct AssessmentExpr {
+pub struct AssginExpr {
     pub name: Token,
     pub value: Box<Expr>,
 }
@@ -97,89 +103,125 @@ pub struct TernaryExpr {
     pub right: Box<Expr>,
 }
 
-impl Display for Expr {
+impl Display for ExprKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Binary(expr) => write!(f, "({} {} {})", expr.operator, expr.left, expr.right),
-            Expr::Grouping(expr) => write!(f, "(group {})", expr.expression),
-            Expr::Literal(expr) => write!(f, "{}", expr.value),
-            Expr::Unary(expr) => write!(f, "({} {})", expr.operator, expr.right),
-            Expr::Separator(expr) => write!(f, "(separator {} {})", expr.left, expr.right),
-            Expr::Ternary(exper) => write!(
+            ExprKind::Binary(expr) => write!(
+                f,
+                "({} {} {})",
+                expr.operator, expr.left.kind, expr.right.kind
+            ),
+            ExprKind::Grouping(expr) => write!(f, "(group {})", expr.expression.kind),
+            ExprKind::Literal(expr) => write!(f, "{}", expr.value),
+            ExprKind::Unary(expr) => write!(f, "({} {})", expr.operator, expr.right.kind),
+            ExprKind::Separator(expr) => {
+                write!(f, "(separator {} {})", expr.left.kind, expr.right.kind)
+            }
+            ExprKind::Ternary(exper) => write!(
                 f,
                 "(ternary {} {} {})",
-                exper.condition, exper.left, exper.right
+                exper.condition.kind, exper.left.kind, exper.right.kind
             ),
-            Expr::Variable(expr) => write!(f, "(Variable {})", expr.name),
-            Expr::Assgin(assessment_expr) => todo!(),
-            Expr::Logical(logical_expr) => todo!(),
-            Expr::Call(call_expr) => todo!(),
+            ExprKind::Variable(expr) => write!(f, "(Variable {})", expr.name),
+            ExprKind::Assgin(assessment_expr) => todo!(),
+            ExprKind::Logical(logical_expr) => todo!(),
+            ExprKind::Call(call_expr) => todo!(),
         }
     }
 }
 
 impl Expr {
-    pub fn binary(left: Expr, operator: Token, right: Expr) -> Self {
-        Expr::Binary(BinaryExpr {
-            left: Box::new(left),
-            operator,
-            right: Box::new(right),
-        })
+    pub fn binary(id: usize, left: Expr, operator: Token, right: Expr) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Binary(BinaryExpr {
+                left: Box::new(left),
+                operator,
+                right: Box::new(right),
+            }),
+        }
     }
 
-    pub fn logical(left: Expr, operator: Token, right: Expr) -> Self {
-        Expr::Logical(LogicalExpr {
-            left: Box::new(left),
-            operator,
-            right: Box::new(right),
-        })
+    pub fn logical(id: usize, left: Expr, operator: Token, right: Expr) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Logical(LogicalExpr {
+                left: Box::new(left),
+                operator,
+                right: Box::new(right),
+            }),
+        }
     }
 
-    pub fn grouping(expr: Expr) -> Self {
-        Expr::Grouping(GroupingExpr {
-            expression: Box::new(expr),
-        })
+    pub fn grouping(id: usize, expr: Expr) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Grouping(GroupingExpr {
+                expression: Box::new(expr),
+            }),
+        }
     }
-    pub fn separator(left: Expr, right: Expr) -> Self {
-        Expr::Separator(SeparatorExpr {
-            left: Box::new(left),
-            right: Box::new(right),
-        })
+    pub fn separator(id: usize, left: Expr, right: Expr) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Separator(SeparatorExpr {
+                left: Box::new(left),
+                right: Box::new(right),
+            }),
+        }
     }
-    pub fn unary(operator: Token, right: Expr) -> Self {
-        Expr::Unary(UnaryExpr {
-            operator,
-            right: Box::new(right),
-        })
+    pub fn unary(id: usize, operator: Token, right: Expr) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Unary(UnaryExpr {
+                operator,
+                right: Box::new(right),
+            }),
+        }
     }
-    pub fn literal(literal_value: LiteralValue) -> Self {
-        Expr::Literal(LiteralExpr {
-            value: literal_value,
-        })
+    pub fn literal(id: usize, literal_value: LiteralValue) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Literal(LiteralExpr {
+                value: literal_value,
+            }),
+        }
     }
-    pub fn ternary(condition: Expr, left: Expr, right: Expr) -> Self {
-        Expr::Ternary(TernaryExpr {
-            condition: Box::new(condition),
-            right: Box::new(right),
-            left: Box::new(left),
-        })
+    pub fn ternary(id: usize, condition: Expr, left: Expr, right: Expr) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Ternary(TernaryExpr {
+                condition: Box::new(condition),
+                right: Box::new(right),
+                left: Box::new(left),
+            }),
+        }
     }
-    pub fn variable(name: Token) -> Self {
-        Expr::Variable(VariableExpr { name: name })
+    pub fn variable(id: usize, name: Token) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Variable(VariableExpr { name: name }),
+        }
     }
 
-    pub fn assign(name: Token, value: Expr) -> Expr {
-        Expr::Assgin(AssessmentExpr {
-            name,
-            value: Box::new(value),
-        })
+    pub fn assign(id: usize, name: Token, value: Expr) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Assgin(AssginExpr {
+                name,
+                value: Box::new(value),
+            }),
+        }
     }
 
-    pub fn call(callee: Expr, paren: Token, arguments: Vec<Expr>) -> Self {
-        Expr::Call(CallExpr {
-            callee: Box::new(callee),
-            paren,
-            arguments,
-        })
+    pub fn call(id: usize, callee: Expr, paren: Token, arguments: Vec<Expr>) -> Self {
+        Expr {
+            id,
+            kind: ExprKind::Call(CallExpr {
+                callee: Box::new(callee),
+                paren,
+                arguments,
+            }),
+        }
     }
 }

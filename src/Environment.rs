@@ -45,9 +45,9 @@ impl Environment {
             },
         }
     }
-    pub fn assign(&mut self, name: Token, value: LiteralValue) -> Result<(), RunTimeError> {
+    pub fn assign(&mut self, name: &Token, value: LiteralValue) -> Result<(), RunTimeError> {
         if self.values.contains_key(&name.lexeme) {
-            self.values.insert(name.lexeme, value);
+            self.values.insert(name.lexeme.clone(), value);
             Ok(())
         } else {
             match &mut self.enclosing {

@@ -1,11 +1,7 @@
-use std::fmt::format;
-use std::vec::IntoIter;
-
-use crate::parser::error;
 use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 
-use crate::ast::expr::{self, Expr, LiteralExpr, LiteralValue};
+use crate::ast::expr::{self, Expr, ExprKind, LiteralExpr, LiteralValue};
 
 use super::error::ParserError;
 
@@ -13,6 +9,7 @@ use super::error::ParserError;
 pub struct Parser {
     tokens: Vec<Token>,
     curr: usize,
+    next_id: usize,
     pub has_error: bool,
 }
 
@@ -24,8 +21,15 @@ impl Parser {
             curr: 0,
             tokens,
             has_error: false,
+            next_id: 0,
         }
     }
+    pub fn next_id(&mut self) -> usize {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
+    }
+
     pub fn parse(&mut self) -> Option<Vec<Stmt>> {
         let mut statments: Vec<Stmt> = vec![];
         while !self.is_at_end() {
@@ -55,15 +59,10 @@ impl Parser {
         if self.match_token_types(vec![TokenType::EQUAL]) {
             initializer = Some(self.expression()?);
         }
-        match self.consume(
+        self.consume(
             TokenType::SEMICOLON,
             "Expect ';' after variable declaration.".to_string(),
-        ) {
-            Ok(_) => {}
-            Err(err) => {
-                return Err(err);
-            }
-        }
+        )?;
         return Ok(Stmt::var_stmt(name?, initializer));
     }
     fn while_statement(&mut self) -> ParserResult<Stmt> {
@@ -101,7 +100,7 @@ impl Parser {
         }
         if self.match_token_types(vec![TokenType::BREAK]) {
             println!("{:?} , {:?}", self.previous(), self.peek());
-            self.consume(TokenType::SEMICOLON, "Expect ; after break".to_string());
+            self.consume(TokenType::SEMICOLON, "Expect ; after break".to_string())?;
             return Ok(Stmt::break_stmt());
         }
         return self.expression_statment();
@@ -143,9 +142,12 @@ impl Parser {
         }
 
         if condition.is_none() {
-            condition = Some(Expr::Literal(LiteralExpr {
-                value: LiteralValue::Boolean(true),
-            }));
+            condition = Some(Expr {
+                id: self.next_id,
+                kind: ExprKind::Literal(LiteralExpr {
+                    value: LiteralValue::Boolean(true),
+                }),
+            });
         }
         body = Stmt::while_stmt(condition.unwrap(), body);
 
@@ -238,7 +240,7 @@ impl Parser {
             "Expect '{' before ".to_string() + kind + " body.",
         )?;
 
-        let mut body = self.block();
+        let body = self.block();
 
         return Ok(Stmt::function_stmt(name, parameters, body));
     }
@@ -272,10 +274,10 @@ impl Parser {
         if self.match_token_types(vec![TokenType::EQUAL]) {
             let equals = self.previous();
             let value = self.assignment()?;
-            match &expr {
-                Expr::Variable(variable_expr) => {
+            match &expr.kind {
+                ExprKind::Variable(variable_expr) => {
                     let name = variable_expr.name.clone();
-                    return Ok(Expr::assign(name, value.clone()));
+                    return Ok(Expr::assign(self.next_id(), name, value));
                 }
                 _ => {
                     return Err(ParserError::new(
@@ -293,7 +295,7 @@ impl Parser {
         while self.match_token_types(vec![TokenType::OR]) {
             let operator = self.previous();
             let right = self.and()?;
-            expr = Expr::logical(expr, operator, right)
+            expr = Expr::logical(self.next_id(), expr, operator, right)
         }
         Ok(expr)
     }
@@ -303,25 +305,12 @@ impl Parser {
         while self.match_token_types(vec![TokenType::AND]) {
             let operator = self.previous();
             let right = self.and()?;
-            expr = Expr::logical(expr, operator, right)
+            expr = Expr::logical(self.next_id(), expr, operator, right)
         }
         Ok(expr)
     }
     fn expression(&mut self) -> Result<Expr, ParserError> {
         return self.assignment();
-        // let expr = self.equality()?;
-        // if self.match_token_types(vec![TokenType::QUESTION]) {
-        //     let left = self.expression()?;
-        //     self.consume(TokenType::COLON, "Expect ')' after expression.".to_string())?;
-        //     let right = self.expression()?;
-        //     return Ok(Expr::ternary(expr, left, right));
-        // }
-
-        // if self.match_token_types(vec![TokenType::COMMA]) {
-        //     let right = self.expression()?;
-        //     return Ok(Expr::separator(expr, right));
-        // }
-        // Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr, ParserError> {
@@ -331,7 +320,7 @@ impl Parser {
             let operator = self.previous();
             let right = self.comparison()?;
 
-            expr = Expr::binary(expr, operator, right);
+            expr = Expr::binary(self.next_id(), expr, operator, right);
         }
         Ok(expr)
     }
@@ -347,7 +336,7 @@ impl Parser {
         ]) {
             let operator = self.previous();
             let right = self.term()?;
-            expr = Expr::binary(expr, operator, right);
+            expr = Expr::binary(self.next_id(), expr, operator, right);
         }
         Ok(expr)
     }
@@ -358,7 +347,7 @@ impl Parser {
         while self.match_token_types(vec![TokenType::MINUS, TokenType::PLUS]) {
             let operator = self.previous();
             let right = self.factor()?;
-            expr = Expr::binary(expr, operator, right);
+            expr = Expr::binary(self.next_id(), expr, operator, right);
         }
         Ok(expr)
     }
@@ -369,7 +358,7 @@ impl Parser {
         while self.match_token_types(vec![TokenType::STAR, TokenType::SLASH]) {
             let operator = self.previous();
             let right = self.factor()?;
-            expr = Expr::binary(expr, operator, right);
+            expr = Expr::binary(self.next_id(), expr, operator, right);
         }
 
         Ok(expr)
@@ -379,7 +368,7 @@ impl Parser {
         if self.match_token_types(vec![TokenType::BANG, TokenType::MINUS]) {
             let operator = self.previous();
             let right = self.unary()?;
-            return Ok(Expr::unary(operator, right));
+            return Ok(Expr::unary(self.next_id(), operator, right));
         }
 
         self.call()
@@ -409,7 +398,7 @@ impl Parser {
             "Expect ')' after arguments.".to_string(),
         )?;
 
-        return Ok(Expr::call(callee, paren, arguments));
+        return Ok(Expr::call(self.next_id(), callee, paren, arguments));
     }
 
     fn call(&mut self) -> ParserResult<Expr> {
@@ -428,23 +417,29 @@ impl Parser {
 
     fn primary(&mut self) -> Result<Expr, ParserError> {
         if self.match_token_types(vec![TokenType::FALSE]) {
-            return Ok(Expr::literal(expr::LiteralValue::Boolean(false)));
+            return Ok(Expr::literal(
+                self.next_id(),
+                expr::LiteralValue::Boolean(false),
+            ));
         }
         if self.match_token_types(vec![TokenType::TRUE]) {
-            return Ok(Expr::literal(expr::LiteralValue::Boolean(true)));
+            return Ok(Expr::literal(
+                self.next_id(),
+                expr::LiteralValue::Boolean(true),
+            ));
         }
         if self.match_token_types(vec![TokenType::NIL]) {
-            return Ok(Expr::literal(expr::LiteralValue::Nil));
+            return Ok(Expr::literal(self.next_id(), expr::LiteralValue::Nil));
         }
 
         if self.match_token_types(vec![TokenType::NUMBER, TokenType::STRING]) {
             let curr = self.previous();
             match curr.literal.unwrap() {
                 crate::token::TokenLiteral::Float(f) => {
-                    return Ok(Expr::literal(expr::LiteralValue::Number(f)));
+                    return Ok(Expr::literal(self.next_id(), expr::LiteralValue::Number(f)));
                 }
                 crate::token::TokenLiteral::Text(s) => {
-                    return Ok(Expr::literal(expr::LiteralValue::String(s)));
+                    return Ok(Expr::literal(self.next_id(), expr::LiteralValue::String(s)));
                 }
             }
         }
@@ -453,7 +448,7 @@ impl Parser {
         }
 
         if self.match_token_types(vec![TokenType::IDENTIFIER]) {
-            return Ok(Expr::variable(self.previous()));
+            return Ok(Expr::variable(self.next_id(), self.previous()));
         }
 
         if self.match_token_types(vec![TokenType::LEFTPAREN]) {
@@ -463,7 +458,7 @@ impl Parser {
                 TokenType::RIGHTPAREN,
                 "Expect ')' after expression.".to_string(),
             ) {
-                Ok(_) => return Ok(Expr::grouping(expr)),
+                Ok(_) => return Ok(Expr::grouping(self.next_id(), expr)),
                 Err(err) => {
                     self.has_error = true;
                     return Err(err);

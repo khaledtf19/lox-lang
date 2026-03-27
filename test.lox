@@ -44,7 +44,6 @@ while ( i < 10 ) {
     print i;
     i = i + 1;
 }
-
 var a = 0;
 var temp;
 print temp;
@@ -89,3 +88,13 @@ fun makeCounter() {
 var counter = makeCounter();
 counter(); // "1".
 counter(); // "2".
+var a = "global";
+{
+  fun showA() {
+    print a;
+  }
+
+  showA();
+  var a = "block";
+  showA();
+}
