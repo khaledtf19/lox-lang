@@ -1,11 +1,11 @@
 use std::{collections::HashMap, ops::Deref};
 
 use crate::{
-    ast::expr::{
+    error::LoxError,
+    expr::{
         AssginExpr, BinaryExpr, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, LogicalExpr,
         UnaryExpr, VariableExpr,
     },
-    error::LoxError,
     interpreter::Interpreter,
     stmt::{
         BlockStmt, ExpresstionStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, StmtExpr,
@@ -210,7 +210,7 @@ impl<'a> Resolver<'a> {
     fn resolve_local(&mut self, expr: &Expr, name: &Token) {
         for (i, scope) in self.scopes.iter().enumerate().rev() {
             if scope.contains_key(&name.lexeme.clone()) {
-                self.interpreter.resolve(expr, self.scopes.len() - 1 - i);
+                self.interpreter.resolve(expr.id, self.scopes.len() - 1 - i);
                 return;
             }
         }

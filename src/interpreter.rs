@@ -7,12 +7,11 @@ use std::{
 };
 
 use crate::{
-    Environment::{Env, Environment},
-    ast::expr::{
+    error::RunTimeError,
+    expr::{
         AssginExpr, BinaryExpr, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, LiteralValue,
         LogicalExpr, UnaryExpr, VariableExpr,
     },
-    error::RunTimeError,
     lox_callable::{Callable, NativeFunction},
     lox_function::LoxFunction,
     stmt::{
@@ -20,6 +19,7 @@ use crate::{
         StmtExpr, StmtResult, VarStmt, WhileStmt,
     },
     token::{Token, TokenType},
+    Environment::{Env, Environment},
 };
 
 #[derive(Debug)]
@@ -429,18 +429,17 @@ impl Interpreter {
         self.environment = previous;
         result
     }
-    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
-        self.locals.insert(expr.id, depth);
+    pub fn resolve(&mut self, id: usize, depth: usize) {
+        self.locals.insert(id, depth);
     }
 
     pub fn get_at(&self, distance: usize, name: &str) -> Option<LiteralValue> {
-        ancestor(self.environment.clone(), distance)
+        ancestor(Rc::clone(&self.environment), distance)
             .and_then(|env| env.borrow().values.get(name).cloned())
     }
-    pub fn assign_at(&mut self, distance: usize, name: &Token, value: LiteralValue) {
-        if let Some(env) = ancestor(self.environment.clone(), distance) {
-            env.borrow_mut().values.insert(name.lexeme.clone(), value);
-        }
+    pub fn assign_at(&self, distance: usize, name: &Token, value: LiteralValue) {
+        ancestor(Rc::clone(&self.environment), distance)
+            .and_then(|env| env.borrow_mut().values.insert(name.lexeme.clone(), value));
     }
 }
 

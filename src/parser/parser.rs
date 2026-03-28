@@ -1,7 +1,7 @@
 use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 
-use crate::ast::expr::{self, Expr, ExprKind, LiteralExpr, LiteralValue};
+use crate::expr::{self, Expr, ExprKind, LiteralExpr, LiteralValue};
 
 use super::error::ParserError;
 
@@ -10,7 +10,7 @@ pub struct Parser {
     tokens: Vec<Token>,
     curr: usize,
     next_id: usize,
-    pub has_error: bool,
+    pub had_error: bool,
 }
 
 type ParserResult<T> = std::result::Result<T, ParserError>;
@@ -20,7 +20,7 @@ impl Parser {
         Parser {
             curr: 0,
             tokens,
-            has_error: false,
+            had_error: false,
             next_id: 0,
         }
     }
@@ -380,10 +380,10 @@ impl Parser {
         if !self.check(TokenType::RIGHTPAREN) {
             loop {
                 if arguments.len() >= 255 {
-                    ParserError::new(
+                    return Err(ParserError::new(
                         self.peek().clone(),
                         "Can't have more than 255 arguments.".to_string(),
-                    );
+                    ));
                 }
                 arguments.push(self.expression()?);
 
@@ -460,7 +460,7 @@ impl Parser {
             ) {
                 Ok(_) => return Ok(Expr::grouping(self.next_id(), expr)),
                 Err(err) => {
-                    self.has_error = true;
+                    self.had_error = true;
                     return Err(err);
                 }
             }
@@ -468,7 +468,7 @@ impl Parser {
 
         if self.match_token_types(vec![TokenType::EOF]) {}
 
-        self.has_error = true;
+        self.had_error = true;
 
         Err(ParserError::new(
             self.peek().clone(),
@@ -484,7 +484,7 @@ impl Parser {
         if self.check(token_type) {
             return Ok(self.advance());
         } else {
-            self.has_error = true;
+            self.had_error = true;
             let err = ParserError::new(self.peek().clone(), error_message);
             Err(err)
         }

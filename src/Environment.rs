@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{ast::expr::LiteralValue, error::RunTimeError, token::Token};
+use crate::{error::RunTimeError, expr::LiteralValue, token::Token};
 
 pub type Env = Rc<RefCell<Environment>>;
 

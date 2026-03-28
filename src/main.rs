@@ -6,8 +6,8 @@ use std::env::{self};
 use lox::Lox;
 
 mod Environment;
-mod ast;
 mod error;
+mod expr;
 mod interpreter;
 mod lox;
 mod lox_callable;
@@ -24,13 +24,9 @@ fn main() {
     let mut lox = Lox::new();
 
     if args.len() <= 1 {
-        println!("Usage: rlox [script]");
-        return;
-    } else if args.len() == 2 {
-        lox.run_file(&args[1])
-            .expect("Someting went wrong while reading");
-        return;
+        lox.run_prompt().expect("Someting went wrong");
     } else {
-        let _ = lox.run_prompt();
+        lox.run_file(&args[args.len() - 1])
+            .expect("Someting went wrong while reading");
     }
 }

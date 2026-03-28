@@ -1,6 +1,6 @@
 use crate::{
-    ast::expr::{Expr, LiteralValue},
     error::RunTimeError,
+    expr::{Expr, LiteralValue},
     token::Token,
 };
 

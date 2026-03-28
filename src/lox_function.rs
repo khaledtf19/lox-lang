@@ -1,12 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    Environment::{Env, Environment},
-    ast::expr::LiteralValue,
     error::RunTimeError,
+    expr::LiteralValue,
     interpreter::Interpreter,
     lox_callable::LoxCallable,
     stmt::FunctionStmt,
+    Environment::{Env, Environment},
 };
 
 pub struct LoxFunction {

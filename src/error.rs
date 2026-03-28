@@ -27,10 +27,10 @@ impl LoxError {
 #[derive(Debug)]
 pub struct RunTimeError {
     pub token: Token,
-    pub message: String
+    pub message: String,
 }
 impl RunTimeError {
     pub fn new(token: Token, message: String) -> Self {
-        Self { token , message}
+        Self { token, message }
     }
 }

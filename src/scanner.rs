@@ -1,7 +1,7 @@
 use std::usize;
 
 use crate::error::LoxError;
-use crate::token::{Token, TokenLiteral, TokenType, parse_keyword};
+use crate::token::{parse_keyword, Token, TokenLiteral, TokenType};
 
 pub struct Scanner {
     source: String,

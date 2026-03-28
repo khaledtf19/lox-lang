@@ -1,6 +1,6 @@
 use std::{fmt::Debug, rc::Rc};
 
-use crate::{ast::expr::LiteralValue, error::RunTimeError, interpreter::Interpreter};
+use crate::{error::RunTimeError, expr::LiteralValue, interpreter::Interpreter};
 
 pub enum Callable {
     Function(Rc<dyn LoxCallable>),
