@@ -24,7 +24,7 @@ impl Lox {
 
         file.read_to_string(&mut source)?;
 
-        self.run(source);
+        self.run(&source);
         return Ok(());
     }
 
@@ -41,13 +41,13 @@ impl Lox {
             {
                 break;
             }
-            self.run(line);
+            self.run(&line);
         }
 
         Ok(())
     }
 
-    pub fn run(&mut self, source: String) {
+    pub fn run(&mut self, source: &str) {
         let mut scanner = scanner::Scanner::new(source);
         let tokens = scanner.scan_tokens();
 

@@ -1,32 +1,33 @@
 use std::usize;
 
 use crate::error::LoxError;
-use crate::token::{parse_keyword, Token, TokenLiteral, TokenType};
+use crate::token::{Token, TokenLiteral, TokenType, parse_keyword};
 
 pub struct Scanner {
-    source: String,
     tokens: Vec<Token>,
     start: usize,
     curr: usize,
     line: usize,
+    chars: Vec<char>,
 
     pub is_error: bool,
 }
 
 impl Scanner {
-    pub fn new(source: String) -> Self {
+    pub fn new(source: &str) -> Self {
         Scanner {
-            source,
             is_error: false,
             tokens: vec![],
             start: 0,
             curr: 0,
             line: 1,
+            chars: source.chars().collect(),
         }
     }
     fn is_at_end(&self) -> bool {
-        self.curr >= self.source.len()
+        self.curr >= self.chars.len()
     }
+
     pub fn scan_tokens(&mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.start = self.curr;
@@ -42,10 +43,7 @@ impl Scanner {
         self.tokens.clone()
     }
     fn get_char_from_source(&self, idx: usize) -> char {
-        if self.is_at_end() {
-            return '\0';
-        };
-        return self.source.chars().nth(idx).unwrap();
+        return self.chars.iter().nth(idx).unwrap_or(&'\0').clone();
     }
 
     fn advance(&mut self) -> char {
@@ -192,7 +190,7 @@ impl Scanner {
     }
 
     fn peek_next(&self) -> char {
-        if self.curr + 1 >= self.source.len() {
+        if self.curr + 1 >= self.chars.len() {
             return '\0';
         }
         self.get_char_from_source(self.curr + 1)
@@ -211,9 +209,11 @@ impl Scanner {
 
     fn sub_string(&self, start: Option<usize>, end: Option<usize>) -> String {
         if start.is_some() && end.is_some() {
-            return self.source[start.unwrap()..end.unwrap()].to_string();
+            return self.chars[start.unwrap()..end.unwrap()].iter().collect();
         }
-        self.source[self.start as usize..self.curr as usize].to_string()
+        self.chars[self.start as usize..self.curr as usize]
+            .iter()
+            .collect()
     }
     fn peek(&self) -> char {
         if self.is_at_end() {

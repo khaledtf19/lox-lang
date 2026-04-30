@@ -79,7 +79,7 @@ impl Display for LiteralValue {
             LiteralValue::String(v) => write!(f, "\"{}\"", v),
             LiteralValue::Boolean(v) => write!(f, "{}", v),
             LiteralValue::Nil => write!(f, "Nil"),
-            LiteralValue::Callable(callable) => todo!(),
+            LiteralValue::Callable(callable) => write!(f, "{}", callable),
         }
     }
 }
@@ -123,8 +123,16 @@ impl Display for ExprKind {
                 exper.condition.kind, exper.left.kind, exper.right.kind
             ),
             ExprKind::Variable(expr) => write!(f, "(Variable {})", expr.name),
-            ExprKind::Assgin(assessment_expr) => todo!(),
-            ExprKind::Logical(logical_expr) => todo!(),
+            ExprKind::Assgin(assessment_expr) => write!(
+                f,
+                "(Assgin {} {})",
+                assessment_expr.name, assessment_expr.value.kind
+            ),
+            ExprKind::Logical(logical_expr) => write!(
+                f,
+                "(Logical {} {} {})",
+                logical_expr.operator, logical_expr.left.kind, logical_expr.right.kind
+            ),
             ExprKind::Call(call_expr) => todo!(),
         }
     }

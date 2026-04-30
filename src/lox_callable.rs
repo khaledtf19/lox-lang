@@ -1,4 +1,7 @@
-use std::{fmt::Debug, rc::Rc};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
 use crate::{error::RunTimeError, expr::LiteralValue, interpreter::Interpreter};
 
@@ -17,6 +20,14 @@ impl Debug for Callable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Function(arg0) => f.debug_tuple("Function").field(&arg0.to_string()).finish(),
+        }
+    }
+}
+
+impl Display for Callable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Callable::Function(_) => write!(f, "<fn>"),
         }
     }
 }
